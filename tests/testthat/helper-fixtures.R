@@ -1,5 +1,6 @@
 # Tiny deterministic subset of eusilcA for fast, reproducible tests.
 tiny_saef_data <- function(n_dom = 4, per_dom = 8, seed = 2026) {
+  testthat::skip_if_not_installed("emdi")
   set.seed(seed)
   data("eusilcA_smp", package = "emdi", envir = environment())
   data("eusilcA_pop", package = "emdi", envir = environment())

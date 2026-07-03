@@ -11,5 +11,6 @@ test_that("point + MSE output has one row per domain and valid indicator ranges"
   expect_true(all(res$Indicators$Hcr >= 0 & res$Indicators$Hcr <= 1))
   expect_true(all(res$Indicators$Gini >= 0 & res$Indicators$Gini <= 1))
   mse_num <- res$MSE_Estimates[, sapply(res$MSE_Estimates, is.numeric)]
-  expect_true(all(as.matrix(mse_num) >= 0, na.rm = TRUE))
+  expect_false(anyNA(as.matrix(mse_num)))
+  expect_true(all(as.matrix(mse_num) >= 0))
 })
