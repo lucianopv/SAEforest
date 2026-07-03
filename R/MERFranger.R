@@ -26,6 +26,14 @@
 #' random forest from the \pkg{ranger}. Must be 'none', 'impurity', 'impurity_corrected',
 #' 'permutation'. For further details see \link[ranger]{ranger}.
 #' @param na.rm Logical. Whether missing values should be removed. Defaults to \code{TRUE}.
+#' @param var.adjust Logical. If \code{TRUE}, applies a per-iteration variance bias correction
+#' (Krennmair et al., 2026) to the random-effects residuals before refitting, and the returned
+#' object additionally carries \code{K}, \code{sigma_e}, \code{sigma_u}, \code{RanEffSD_unadj},
+#' \code{ErrorSD_unadj}, and \code{sd_Mendez_Lohr_naive_unad}. Defaults to \code{FALSE}, which
+#' reproduces the original, unadjusted MERF algorithm exactly.
+#' @param B_adj Numeric value specifying the number of bootstrap replicates used within the
+#' variance bias correction when \code{var.adjust = TRUE}. Defaults to 100. Ignored when
+#' \code{var.adjust = FALSE}.
 #' @param seed Integer value used to seed R's random number generator once at the start of the
 #' function, enabling reproducibility for direct, standalone calls of \code{MERFranger}. If
 #' \code{NULL} (the default), no seed is set. Note that \code{\link{SAEforest_model}} does not
@@ -102,15 +110,14 @@
 #'
 #' ind_pred <- predict(model1, eusilcA_pop)
 #'}
-MERFranger <- function(Y,
-                       X,
-                       random,
-                       data,
+MERFranger <- function(Y, X, random, data,
                        importance = "none",
                        initialRandomEffects = 0,
                        ErrorTolerance = 0.0001,
                        MaxIterations = 25,
                        na.rm = TRUE,
+                       var.adjust = FALSE,
+                       B_adj = 100,
                        seed = NULL,
                        ...) {
 
@@ -132,27 +139,62 @@ MERFranger <- function(Y,
   Target <- Y
   ContinueCondition <- TRUE
   iterations <- 0
-
   AdjustedTarget <- Target - initialRandomEffects
   oldLogLik <- 0
+
+  K_list <- list(); sigma_e <- list(); sigma_u <- list()
+  lmefit_ <- NULL; r_ij_new <- NULL; naive_unadj <- NA_real_
+
   while (ContinueCondition) {
     iterations <- iterations + 1
     rf <- ranger::ranger(x = X, y = AdjustedTarget, importance = importance, ...)
     forest_preds <- rf$predictions
-    f0 <- as.formula(paste0("Target ~ -1+", random))
-    lmefit <- lme4::lmer(f0, data = data, REML = FALSE, offset = forest_preds)
 
-    newLogLik <- as.numeric(stats::logLik(lmefit))
+    if (!var.adjust) {
+      ## ---- upstream path (KEEP byte-identical for parity) ----
+      f0 <- as.formula(paste0("Target ~ -1+", random))
+      lmefit <- lme4::lmer(f0, data = data, REML = FALSE, offset = forest_preds)
+      newLogLik <- as.numeric(stats::logLik(lmefit))
+      ContinueCondition <- (abs(abs(newLogLik - oldLogLik[iterations]) / oldLogLik[iterations]) > ErrorTolerance &
+                              iterations < MaxIterations)
+      oldLogLik <- c(oldLogLik, newLogLik)
+      AllEffects <- predict(lmefit)
+      AdjustedTarget <- Target - (AllEffects - forest_preds)
+    } else {
+      ## ---- variance-adjusted path (Krennmair et al., 2026) ----
+      Input_lmefit_ <- Target - forest_preds
+      lmefit_ <- lme4::lmer(as.formula(paste0("Input_lmefit_ ~", random)),
+                            data = data, REML = TRUE)
+      r_ij <- Target - forest_preds
+      r_ij <- r_ij - mean(r_ij)
+      naive_unadj <- sd(Target - forest_preds)
 
-    ContinueCondition <- (abs(abs(newLogLik - oldLogLik[iterations]) / oldLogLik[iterations]) > ErrorTolerance &
-      iterations < MaxIterations)
-    oldLogLik <- c(oldLogLik, newLogLik)
-    AllEffects <- predict(lmefit)
-    AdjustedTarget <- Target - (AllEffects - forest_preds)
+      K <- K_list[[iterations]] <- adjust_ErrorSD_(
+        Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
+        B = B_adj, ...
+      )
+      if (K > naive_unadj^2) {
+        warning("Variance bias correction K exceeds naive residual variance; ",
+                "clamping adjusted SD to 0 at iteration ", iterations, ".")
+      }
+      sd.adjust <- sqrt(max(0, naive_unadj^2 - K))
+      r_ij_new <- (r_ij / sd(r_ij)) * sd.adjust
+
+      lmefit <- lme4::lmer(as.formula(paste0("r_ij_new ~", random)),
+                           data = data, REML = TRUE)
+      newLogLik <- as.numeric(stats::logLik(lmefit))
+      ContinueCondition <- (abs(abs(newLogLik - oldLogLik[iterations]) / oldLogLik[iterations]) > ErrorTolerance &
+                              iterations < MaxIterations)
+      oldLogLik <- c(oldLogLik, newLogLik)
+      AllEffects <- predict(lmefit) - lme4::fixef(lmefit)
+      AdjustedTarget <- Target - AllEffects
+      sigma_e[[iterations]] <- stats::sigma(lmefit)
+      sigma_u[[iterations]] <- as.data.frame(lme4::VarCorr(lmefit))$sdcor[1]
+    }
   }
 
   data$forest_preds <- NULL
-  residuals <- Target - predict(lmefit)
+  residuals <- if (!var.adjust) Target - predict(lmefit) else r_ij_new - AllEffects
 
   result <- list(
     Forest = rf,
@@ -170,8 +212,16 @@ MERFranger <- function(Y,
     MaxIterations = MaxIterations
   )
 
-  class(result) <- "MERFranger"
+  if (var.adjust) {
+    result$K <- K_list
+    result$sigma_e <- sigma_e
+    result$sigma_u <- sigma_u
+    result$RanEffSD_unadj <- as.data.frame(lme4::VarCorr(lmefit_))$sdcor[1]
+    result$ErrorSD_unadj <- stats::sigma(lmefit_)
+    result$sd_Mendez_Lohr_naive_unad <- naive_unadj
+  }
 
+  class(result) <- "MERFranger"
   return(result)
 }
 
