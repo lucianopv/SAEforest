@@ -22,6 +22,7 @@ Imports:
     caret,
     dplyr,
     ggplot2,
+    gridExtra,
     haven,
     ineq,
     lme4,

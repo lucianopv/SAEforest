@@ -130,7 +130,7 @@ plot.SAEforest <- function(x,
         gg_theme
     })
 
-    vip::grid.arrange(grobs = pdp_curves, nrow = grid_row)
+    gridExtra::grid.arrange(grobs = pdp_curves, nrow = grid_row)
   }
 
   # generate output for further modifications
