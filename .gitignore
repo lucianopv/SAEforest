@@ -3,3 +3,16 @@
 .RData
 .Ruserdata
 docs
+
+# Claude / tooling — never publish
+.claude/
+CLAUDE.md
+_attic/
+scratchpad/
+*.local.*
+
+# build artifacts
+..Rcheck/
+*.tar.gz
+src/*.o
+src/*.so
