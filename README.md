@@ -6,6 +6,38 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
+**This is a fork of [`krennpa/SAEforest`](https://github.com/krennpa/SAEforest)**
+that adds:
+
+- `var.adjust`: the variance bias correction of Krennmair et al. (2026,
+  *Annals of Applied Statistics*), applied inside the MERF fitting loop.
+- `transformation = "log"`: fit the MERF on `log(Y)` with smearing-based
+  back-transformation of point/MSE estimates.
+- `seed`: reproducibility for the whole `SAEforest_model()`/`MERFranger()`
+  pipeline via a single top-level `set.seed()` call.
+- `select.indicator`: compute only a subset of the standard nonlinear
+  indicators, for faster estimation when just one or a few are needed.
+
+`var.adjust` and `transformation` are scoped to the non-linear indicator
+path that uses smearing (`meanOnly = FALSE`, `smearing = TRUE`); they are
+ignored (with an explicit warning) under `meanOnly = TRUE`,
+`aggData = TRUE`, or `smearing = FALSE`. See
+`vignette("variance-adjusted-merf")` for a worked walkthrough of the new
+arguments. Upstream `krennpa/SAEforest` remains the collaboration target
+for these changes via pull request.
+
+**Known limitations (deferred, kept for upstream parity):** a verification
+of `var.adjust` against Krennmair et al. (2026) identified two minor,
+low-priority deviations from the paper that are intentionally left
+unchanged so this fork stays a minimal diff against upstream: (P2)
+`adjust_ErrorSD()` builds its bootstrap residuals from in-sample (non-OOB)
+forest predictions rather than OOB predictions, biasing its bias term
+slightly low; (P3) the naive residual variance in `MERFranger()` is
+computed as `sd(...)^2` (centred, denominator `n - 1`) rather than the
+paper's uncentred `n^-1 Sum(.)^2`, which is numerically negligible at
+typical SAE sample sizes but a literal departure from the equation as
+written.
+
 The package promotes the use of Mixed Effects Random Forests (MERFs) for
 applications of Small Area Estimation (SAE). The package effectively
 combines functions for the estimation of regionally disaggregated linear
