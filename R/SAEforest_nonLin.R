@@ -90,8 +90,14 @@ SAEforest_nonLin <- function(Y,
 
     # MSE estimation
     if (MSE != "none") {
-      message(paste("Error SD Bootstrap started:"))
-      adj_SD <- adjust_ErrorSD(Y = Y, X = X, smp_data = smp_data, mod = nonLin_preds[[2]], B = B_adj, ...)
+      if (isTRUE(var.adjust)) {
+        # ErrorSD is already Mendez-Lohr bias-corrected inside the MERF loop
+        # (var.adjust path); a second correction here would double-count the bias.
+        adj_SD <- nonLin_preds[[2]]$ErrorSD
+      } else {
+        message("Error SD Bootstrap started:")
+        adj_SD <- adjust_ErrorSD(Y = Y, X = X, smp_data = smp_data, mod = nonLin_preds[[2]], B = B_adj, ...)
+      }
       message(paste("MSE Bootstrap with", B, "rounds started:"))
     }
 
