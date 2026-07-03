@@ -45,6 +45,10 @@
 #' which reproduces the original, unadjusted MERF algorithm exactly.
 #' @param B_adj Number of bootstrap replications for the adjustment of residual variance proposed
 #' by Mendez and Lohr (2001). Only used if \code{var.adjust = TRUE}. Defaults to 100.
+#' @param transformation Character. Either \code{"none"} (default) or \code{"log"}. If \code{"log"},
+#' the target variable \code{Y} is log-transformed before fitting the MERF for nonlinear indicators
+#' (\code{meanOnly = FALSE}), and back-transformed via \code{exp()} in the smearing and MSE bootstrap
+#' steps; non-finite back-transformed values become \code{NA}. Requires strictly positive \code{Y}.
 #' @param na.rm Logical. Whether missing values should be removed. Defaults to \code{TRUE}.
 #' @param ... Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 #' Most important parameters are for instance \code{mtry} (number of variables to possibly split at
@@ -216,6 +220,7 @@ SAEforest_model <- function(Y,
                             var.adjust = FALSE,
                             B_adj = 100,
                             B_MC = 100,
+                            transformation = c("none", "log"),
                             threshold = NULL,
                             custom_indicator = NULL,
                             initialRandomEffects = 0,
@@ -235,6 +240,8 @@ SAEforest_model <- function(Y,
     initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
     MaxIterations = MaxIterations, aggregate_to = aggregate_to, na.rm = na.rm
   )
+
+  transformation <- match.arg(transformation, c("none", "log"))
 
   out_call <- match.call()
 
@@ -292,6 +299,7 @@ SAEforest_model <- function(Y,
       var.adjust = var.adjust,
       B_adj = B_adj,
       B_MC = B_MC,
+      transformation = transformation,
       threshold = threshold,
       custom_indicator = custom_indicator,
       aggregate_to = aggregate_to,

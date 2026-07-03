@@ -15,12 +15,15 @@ SAEforest_nonLin <- function(Y,
                              var.adjust = FALSE,
                              B_adj = 100,
                              B_MC = 100,
+                             transformation = c("none", "log"),
                              threshold = NULL,
                              custom_indicator = NULL,
                              aggregate_to = NULL,
                              na.rm = TRUE,
                              out_call,
                              ...) {
+
+  transformation <- match.arg(transformation, c("none", "log"))
 
   if (na.rm == TRUE) {
     comp_smp <- complete.cases(smp_data)
@@ -61,6 +64,7 @@ SAEforest_nonLin <- function(Y,
       aggregate_to = aggregate_to,
       var.adjust = var.adjust,
       B_adj = B_adj,
+      transformation = transformation,
       ...
     )
 
@@ -110,6 +114,7 @@ SAEforest_nonLin <- function(Y,
         aggregate_to = aggregate_to,
         var.adjust = var.adjust,
         B_adj = B_adj,
+        transformation = transformation,
         ...
       )
 
@@ -145,6 +150,7 @@ SAEforest_nonLin <- function(Y,
         aggregate_to = aggregate_to,
         var.adjust = var.adjust,
         B_adj = B_adj,
+        transformation = transformation,
         ...
       )
 

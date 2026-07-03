@@ -19,7 +19,10 @@ MSE_SAEforest_nonLin <- function(Y,
                                  aggregate_to,
                                  var.adjust = FALSE,
                                  B_adj = 100,
+                                 transformation = c("none", "log"),
                                  ...) {
+
+  transformation <- match.arg(transformation, c("none", "log"))
 
   rand_struc <- paste0(paste0("(1|", dName), ")")
   domains <- t(unique(pop_data[dName]))
@@ -68,6 +71,10 @@ MSE_SAEforest_nonLin <- function(Y,
   e_ij <- apply(mu_ij, 2, sample_e)
 
   y_star <- mu_ij + e_ij
+
+  if (transformation == "log") {
+    y_star <- exp(y_star); y_star[!is.finite(y_star)] <- NA
+  }
 
   # get tau_star
   y_star_L <- split(y_star, col(y_star))
@@ -127,7 +134,7 @@ MSE_SAEforest_nonLin <- function(Y,
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
         MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, ...
+        var.adjust = var.adjust, B_adj = B_adj, transformation = transformation, ...
       )[[1]][, -1]
     }
   }

@@ -75,7 +75,10 @@ point_nonLin <- function(Y,
                          aggregate_to,
                          var.adjust = FALSE,
                          B_adj = 100,
+                         transformation = c("none", "log"),
                          ...) {
+
+  transformation <- match.arg(transformation, c("none", "log"))
 
   random <- paste0(paste0("(1|", dName), ")")
   if(is.null(aggregate_to)){
@@ -86,6 +89,11 @@ point_nonLin <- function(Y,
     popSize <- as.numeric(table(pop_data[[aggregate_to]]))
   }
   thresh <- get_thresh(Y, threshold = threshold)
+
+  if (transformation == "log" && any(Y <= 0, na.rm = TRUE)) {
+    stop("transformation='log' requires strictly positive Y.")
+  }
+  if (transformation == "log") Y <- log(Y)
 
   unit_model <- MERFranger(
     Y = Y,
@@ -117,7 +125,11 @@ point_nonLin <- function(Y,
   for (i in seq_along(domains)) {
     smear_i <- matrix(rep(unit_model$OOBresiduals, popSize[i]), nrow = popSize[i], ncol = length(unit_model$OOBresiduals), byrow = TRUE)
     smear_i <- smear_i + unit_preds[pop_data[[dName]] == domains[i]]
-    val_i <- c(smear_i)
+    if (transformation == "log") {
+      val_i <- exp(c(smear_i)); val_i[!is.finite(val_i)] <- NA
+    } else {
+      val_i <- c(smear_i)
+    }
     smear_list[[i]] <- calc_indicat(val_i, threshold = thresh, custom = custom_indicator)
   }
 
