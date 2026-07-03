@@ -3,7 +3,7 @@
 
 
 # Calculation of indicators from smearing or MC pseudo-populations ------------------------
-calc_indicat <- function(Y, threshold, custom) {
+calc_indicat <- function(Y, threshold, custom, select.indicator = NULL) {
 
   hcr_function <- function(y, threshold) {
     mean(y < threshold, na.rm = TRUE)
@@ -36,6 +36,10 @@ calc_indicat <- function(Y, threshold, custom) {
   if (!is.null(custom)) {
     custom_ind <- unlist(lapply(custom, function(f) f(Y, threshold)))
     indicators <- cbind(indicators, t(custom_ind))
+  }
+
+  if (!is.null(select.indicator)) {
+    indicators <- indicators[, select.indicator]
   }
 
   return(indicators)
@@ -95,6 +99,12 @@ sample_select <- function(pop, smp, dName) {
 
 # Computes REB random components in the MSE procedures ------------------------------------
 ran_comp <- function(mod, smp_data, Y, dName, ADJsd) {
+  scale_to <- function(x, target) {
+    s <- sd(x)
+    if (!is.finite(s) || s == 0) return(x - mean(x))
+    (x / s) * target - mean((x / s) * target)
+  }
+
   forest_res1 <- Y - predict(mod$Forest, smp_data)$predictions
   smp_data$forest_res <- forest_res1
 
@@ -106,19 +116,13 @@ ran_comp <- function(mod, smp_data, Y, dName, ADJsd) {
   smp_data <- dplyr::left_join(smp_data, ran_effs1, by = dName)
   smp_data$forest_eij <- smp_data$forest_res - smp_data$r_bar
 
-  # prepare for sampling
+  # prepare for sampling (guarded against zero/non-finite SD, then centered)
   forest_res <- smp_data$forest_eij
-  forest_res <- (forest_res / sd(forest_res)) * ADJsd
+  forest_res <- scale_to(forest_res, ADJsd)
 
-  # CENTER
-  forest_res <- forest_res - mean(forest_res)
-
-  # prepare for sampling
+  # prepare for sampling (guarded against zero/non-finite SD, then centered)
   ran_effs <- ran_effs1$r_bar
-  ran_effs <- (ran_effs / sd(ran_effs)) * mod$RanEffSD
-
-  # CENTER
-  ran_effs <- ran_effs - mean(ran_effs)
+  ran_effs <- scale_to(ran_effs, mod$RanEffSD)
 
   return(list(
     forest_res = forest_res,

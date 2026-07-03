@@ -20,6 +20,7 @@ SAEforest_nonLin <- function(Y,
                              custom_indicator = NULL,
                              aggregate_to = NULL,
                              na.rm = TRUE,
+                             select.indicator = NULL,
                              out_call,
                              ...) {
 
@@ -65,6 +66,7 @@ SAEforest_nonLin <- function(Y,
       var.adjust = var.adjust,
       B_adj = B_adj,
       transformation = transformation,
+      select.indicator = select.indicator,
       ...
     )
 
@@ -115,6 +117,7 @@ SAEforest_nonLin <- function(Y,
         var.adjust = var.adjust,
         B_adj = B_adj,
         transformation = transformation,
+        select.indicator = select.indicator,
         ...
       )
 
@@ -151,6 +154,7 @@ SAEforest_nonLin <- function(Y,
         var.adjust = var.adjust,
         B_adj = B_adj,
         transformation = transformation,
+        select.indicator = select.indicator,
         ...
       )
 
@@ -186,6 +190,7 @@ SAEforest_nonLin <- function(Y,
       aggregate_to = aggregate_to,
       var.adjust = var.adjust,
       B_adj = B_adj,
+      select.indicator = select.indicator,
       ...
     )
 
@@ -235,6 +240,7 @@ SAEforest_nonLin <- function(Y,
         aggregate_to = aggregate_to,
         var.adjust = var.adjust,
         B_adj = B_adj,
+        select.indicator = select.indicator,
         ...
       )
 
@@ -270,6 +276,7 @@ SAEforest_nonLin <- function(Y,
         aggregate_to = aggregate_to,
         var.adjust = var.adjust,
         B_adj = B_adj,
+        select.indicator = select.indicator,
         ...
       )
 

@@ -76,6 +76,7 @@ point_nonLin <- function(Y,
                          var.adjust = FALSE,
                          B_adj = 100,
                          transformation = c("none", "log"),
+                         select.indicator = NULL,
                          ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -130,10 +131,11 @@ point_nonLin <- function(Y,
     } else {
       val_i <- c(smear_i)
     }
-    smear_list[[i]] <- calc_indicat(val_i, threshold = thresh, custom = custom_indicator)
+    smear_list[[i]] <- calc_indicat(val_i, threshold = thresh, custom = custom_indicator,
+                                     select.indicator = select.indicator)
   }
 
-  indicators <- do.call(rbind.data.frame, smear_list)
+  indicators <- as.data.frame(do.call(rbind, smear_list))
   indicators_out <- cbind(domains, indicators)
   names(indicators_out)[1] <- dName
 
@@ -360,6 +362,7 @@ point_MC_nonLin <- function(Y,
                             aggregate_to,
                             var.adjust = FALSE,
                             B_adj = 100,
+                            select.indicator = NULL,
                             ...) {
 
   domains <- names(table(pop_data[[dName]]))
@@ -426,11 +429,13 @@ point_MC_nonLin <- function(Y,
   }
 
   my_agg <- function(x) {
-    tapply(x, indi_agg, calc_indicat, threshold = thresh, custom = custom_indicator)
+    tapply(x, indi_agg, calc_indicat, threshold = thresh, custom = custom_indicator,
+           select.indicator = select.indicator, simplify = FALSE)
   }
   tau_star <- apply(y_star, my_agg, MARGIN = 2, simplify = FALSE)
 
   col_names <- colnames(tau_star[[1]]$`1`)
+  if (is.null(col_names)) col_names <- select.indicator
 
   tau_star <- sapply(tau_star, comb, simplify = FALSE)
 

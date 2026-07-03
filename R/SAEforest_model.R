@@ -60,6 +60,9 @@
 #' @param custom_indicator A list of additional functions containing the indicators to be
 #' calculated. These functions must only depend on the target variable \code{Y} and optionally the
 #' \code{threshold}. Defaults to \code{NULL}.
+#' @param select.indicator Character. Name(s) of a subset of indicators (e.g. \code{"Hcr"}) to
+#' compute, speeding up estimation when only one or a few indicators are needed. Only used if
+#' \code{meanOnly = FALSE}. If \code{NULL} (the default), all standard indicators are computed.
 #' @param smearing Logical input indicating whether a smearing based approach or a Monte Carlo (MC) version for
 #' point estimates should be obtained to estimate (nonlinear) indicators. MC should be used if computational constraints prohibit a
 #' smearing approach. For theoretical details see Krennmair et al (2022b). Defaults to \code{TRUE}.
@@ -228,6 +231,7 @@ SAEforest_model <- function(Y,
                             MaxIterations = 25,
                             aggregate_to = NULL,
                             na.rm = TRUE,
+                            select.indicator = NULL,
                             seed = NULL,
                             ...) {
 
@@ -304,6 +308,7 @@ SAEforest_model <- function(Y,
       custom_indicator = custom_indicator,
       aggregate_to = aggregate_to,
       na.rm = na.rm,
+      select.indicator = select.indicator,
       out_call = out_call,
       ...
     )

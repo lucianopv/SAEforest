@@ -20,6 +20,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  var.adjust = FALSE,
                                  B_adj = 100,
                                  transformation = c("none", "log"),
+                                 select.indicator = NULL,
                                  ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -85,11 +86,13 @@ MSE_SAEforest_nonLin <- function(Y,
 
   if(is.null(aggregate_to)){
     my_agg <- function(x) {
-    tapply(x[, 1], pop_data[[dName]], calc_indicat, threshold = unique(x[, 2]), custom = custom_indicator)
+    tapply(x[, 1], pop_data[[dName]], calc_indicat, threshold = unique(x[, 2]), custom = custom_indicator,
+           select.indicator = select.indicator)
     }
   } else{
     my_agg <- function(x) {
-      tapply(x[, 1], pop_data[[aggregate_to]], calc_indicat, threshold = unique(x[, 2]), custom = custom_indicator)
+      tapply(x[, 1], pop_data[[aggregate_to]], calc_indicat, threshold = unique(x[, 2]), custom = custom_indicator,
+             select.indicator = select.indicator)
     }
   }
 
@@ -123,7 +126,7 @@ MSE_SAEforest_nonLin <- function(Y,
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance, B_point = B_point,
         MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, ...
+        var.adjust = var.adjust, B_adj = B_adj, select.indicator = select.indicator, ...
       )[[1]][, -1]
     }
   }
@@ -134,7 +137,8 @@ MSE_SAEforest_nonLin <- function(Y,
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
         MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, transformation = transformation, ...
+        var.adjust = var.adjust, B_adj = B_adj, transformation = transformation,
+        select.indicator = select.indicator, ...
       )[[1]][, -1]
     }
   }
@@ -149,12 +153,15 @@ MSE_SAEforest_nonLin <- function(Y,
 
   MSE_estimates <- Reduce("+", Mean_square_B) / length(Mean_square_B)
 
+  mse_col_names <- colnames(MSE_estimates)
+  if (is.null(mse_col_names)) mse_col_names <- select.indicator
+
   if(is.null(aggregate_to)){
     MSE_estimates_out <- data.frame(unique(pop_data[dName]), MSE_estimates)
-    colnames(MSE_estimates_out) <- c(dName, colnames(MSE_estimates))
+    colnames(MSE_estimates_out) <- c(dName, mse_col_names)
   } else{
     MSE_estimates_out <- data.frame(unique(pop_data[aggregate_to]), MSE_estimates)
-    colnames(MSE_estimates_out) <- c(aggregate_to, colnames(MSE_estimates))
+    colnames(MSE_estimates_out) <- c(aggregate_to, mse_col_names)
   }
 
   rownames(MSE_estimates_out) <- NULL
