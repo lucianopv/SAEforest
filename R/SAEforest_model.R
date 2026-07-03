@@ -256,6 +256,15 @@ SAEforest_model <- function(Y,
 
   if (!is.null(seed)) set.seed(seed)
 
+  if (isTRUE(var.adjust) && (isTRUE(meanOnly) || isTRUE(aggData))) {
+    warning("'var.adjust = TRUE' only affects non-linear indicators; it is ignored when ",
+            "meanOnly = TRUE or aggData = TRUE.")
+  }
+  if (!identical(transformation, "none") && (isTRUE(meanOnly) || isTRUE(aggData) || isFALSE(smearing))) {
+    warning("transformation = '", transformation, "' is only applied on the non-linear ",
+            "smearing path; it is ignored for meanOnly/aggData/smearing = FALSE.")
+  }
+
   if (meanOnly == TRUE || aggData == TRUE) {
     return_obj <- SAEforest_mean(
       Y = Y,
