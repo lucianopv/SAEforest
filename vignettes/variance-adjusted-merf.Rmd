@@ -1,0 +1,134 @@
+---
+title: "Variance-Adjusted MERFs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Variance-Adjusted MERFs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+This fork of `SAEforest` adds a small number of options to
+`SAEforest_model()`/`MERFranger()` that are **not** present in the upstream
+`krennpa/SAEforest` package:
+
+* `var.adjust`: applies the variance bias correction of Krennmair et al.
+  (2026, *Annals of Applied Statistics*) inside the MERF fitting loop.
+* `transformation`: allows fitting the MERF on `log(Y)` and back-transforming
+  point/MSE estimates via smearing.
+* `seed`: seeds R's RNG once at the top of `SAEforest_model()` for
+  reproducibility of the whole pipeline (point estimates and, if requested,
+  the MSE bootstrap).
+* `select.indicator`: restricts computation to a subset of the standard
+  nonlinear indicators, which can meaningfully speed up estimation when only
+  one or a few indicators (e.g. `"Hcr"`) are of interest.
+
+**Scope limitation:** `var.adjust` and `transformation` only affect the
+non-linear indicator path (`meanOnly = FALSE`) that uses the smearing
+approach (`smearing = TRUE`, the default). Passing either argument together
+with `meanOnly = TRUE`, `aggData = TRUE`, or `smearing = FALSE` now raises an
+explicit `warning()` rather than silently ignoring the argument.
+
+This vignette illustrates the new arguments on the bundled `eusilcA` example
+data. Code chunks use a tiny `num.trees`/`B` and are not evaluated when the
+vignette is built, so building the package never triggers a full,
+computationally expensive MERF fit; copy the code into an interactive
+session (with realistic `num.trees`/`B`) to reproduce it for real use.
+
+```{r setup}
+library(SAEforest)
+
+data("eusilcA_pop")
+data("eusilcA_smp")
+
+income <- eusilcA_smp$eqIncome
+X_covar <- eusilcA_smp[, -c(1, 16, 17, 18)]
+```
+
+## 1. A plain (unadjusted) fit
+
+`var.adjust = FALSE` (the default) reproduces the original, unadjusted MERF
+algorithm exactly.
+
+```{r plain-fit, eval = FALSE}
+model_plain <- SAEforest_model(
+  Y = income, X = X_covar, dName = "district",
+  smp_data = eusilcA_smp, pop_data = eusilcA_pop,
+  meanOnly = FALSE, MSE = "none",
+  var.adjust = FALSE,
+  num.trees = 50, mtry = 3, seed = 1
+)
+
+summary(model_plain)
+```
+
+## 2. The variance-adjusted fit
+
+Setting `var.adjust = TRUE` applies a per-iteration bias correction to the
+random-effects residuals before refitting (Krennmair et al., 2026). This is
+only meaningful on the non-linear, smearing-based path.
+
+```{r var-adjust-fit, eval = FALSE}
+model_adjusted <- SAEforest_model(
+  Y = income, X = X_covar, dName = "district",
+  smp_data = eusilcA_smp, pop_data = eusilcA_pop,
+  meanOnly = FALSE, MSE = "none",
+  var.adjust = TRUE, B_adj = 20,
+  num.trees = 50, mtry = 3, seed = 1
+)
+
+summary(model_adjusted)
+```
+
+## 3. A log-transformed fit
+
+`transformation = "log"` fits the MERF on `log(Y)` and back-transforms via
+smearing (non-finite back-transformed values become `NA`). It requires
+strictly positive `Y`.
+
+```{r log-fit, eval = FALSE}
+model_log <- SAEforest_model(
+  Y = income, X = X_covar, dName = "district",
+  smp_data = eusilcA_smp, pop_data = eusilcA_pop,
+  meanOnly = FALSE, MSE = "none",
+  transformation = "log",
+  num.trees = 50, mtry = 3, seed = 1
+)
+
+summary(model_log)
+```
+
+## Unsupported combinations
+
+`var.adjust`/`transformation` are ignored (with a warning) outside the
+non-linear smearing path, e.g.:
+
+```{r unsupported-combo, eval = FALSE}
+# Warns: var.adjust is ignored when meanOnly = TRUE
+SAEforest_model(
+  Y = income, X = X_covar, dName = "district",
+  smp_data = eusilcA_smp, pop_data = eusilcA_pop,
+  meanOnly = TRUE, var.adjust = TRUE,
+  num.trees = 50, seed = 1
+)
+```
+
+## References
+
+Krennmair, P., & Schmid, T. (2022). Flexible Domain Prediction Using Mixed
+Effects Random Forests. *Journal of the Royal Statistical Society: Series C
+(Applied Statistics)*.
+
+Krennmair, P., et al. (2026). Variance estimation for Mixed Effects Random
+Forests in Small Area Estimation. *Annals of Applied Statistics* (forthcoming).
+
+Mendez, G., & Lohr, S. (2011). Estimating residual variance in random forest
+regression. *Computational Statistics & Data Analysis*, 55(11), 2937-2950.
