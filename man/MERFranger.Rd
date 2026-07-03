@@ -14,6 +14,9 @@ MERFranger(
   ErrorTolerance = 1e-04,
   MaxIterations = 25,
   na.rm = TRUE,
+  var.adjust = FALSE,
+  B_adj = 100,
+  seed = NULL,
   ...
 )
 }
@@ -42,6 +45,22 @@ Defaults to 0.}
 MERF algorithm. Defaults to 25.}
 
 \item{na.rm}{Logical. Whether missing values should be removed. Defaults to \code{TRUE}.}
+
+\item{var.adjust}{Logical. If \code{TRUE}, applies a per-iteration variance bias correction
+(Krennmair et al., 2026) to the random-effects residuals before refitting, and the returned
+object additionally carries \code{K}, \code{sigma_e}, \code{sigma_u}, \code{RanEffSD_unadj},
+\code{ErrorSD_unadj}, and \code{sd_Mendez_Lohr_naive_unad}. Defaults to \code{FALSE}, which
+reproduces the original, unadjusted MERF algorithm exactly.}
+
+\item{B_adj}{Numeric value specifying the number of bootstrap replicates used within the
+variance bias correction when \code{var.adjust = TRUE}. Defaults to 100. Ignored when
+\code{var.adjust = FALSE}.}
+
+\item{seed}{Integer value used to seed R's random number generator once at the start of the
+function, enabling reproducibility for direct, standalone calls of \code{MERFranger}. If
+\code{NULL} (the default), no seed is set. Note that \code{\link{SAEforest_model}} does not
+pass its own \code{seed} argument down to this function; each MERF fit called within a
+bootstrap therefore continues to draw its own randomness from the caller's seeded RNG stream.}
 
 \item{...}{Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 Most important parameters are for instance \code{mtry} (number of variables to possibly split at

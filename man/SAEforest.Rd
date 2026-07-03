@@ -2,6 +2,7 @@
 % Please edit documentation in R/SAEforest.R
 \docType{package}
 \name{SAEforest}
+\alias{SAEforest-package}
 \alias{SAEforest}
 \title{'SAEforest' - Estimating disaggregated indicators using Mixed Effects Random Forests}
 \description{
@@ -36,4 +37,21 @@ Mixed Effects Random Forests under Aggregated Census Data.
 
 Krennmair, P., & Schmid, T & Tzavidis, Nikos. (2022b). The Estimation of Poverty Indicators Using
 Mixed Effects Random Forests. Working Paper.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/krennpa/SAEforest}
+  \item \url{https://krennpa.github.io/SAEforest/}
+}
+
+}
+\author{
+\strong{Maintainer}: Patrick Krennmair \email{patrick.krennmair@fu-berlin.de}
+
+Authors:
+\itemize{
+  \item Nicolas Frink \email{nicolas.frink@fu-berlin.de}
+}
+
 }

@@ -20,8 +20,10 @@ SAEforest_model(
   ADDsamp_obs = 0,
   w_min = 3,
   B = 100,
+  var.adjust = FALSE,
   B_adj = 100,
   B_MC = 100,
+  transformation = c("none", "log"),
   threshold = NULL,
   custom_indicator = NULL,
   initialRandomEffects = 0,
@@ -29,6 +31,8 @@ SAEforest_model(
   MaxIterations = 25,
   aggregate_to = NULL,
   na.rm = TRUE,
+  select.indicator = NULL,
+  seed = NULL,
   ...
 )
 }
@@ -85,11 +89,20 @@ Only needed if \code{aggData = TRUE}. Defaults to 3.}
 
 \item{B}{Number of bootstrap replications for MSE estimation procedures. Defaults to 100.}
 
+\item{var.adjust}{Logical. If \code{TRUE}, applies the variance bias correction of Krennmair
+et al. (2026) within the underlying \code{\link{MERFranger}} fits. Defaults to \code{FALSE},
+which reproduces the original, unadjusted MERF algorithm exactly.}
+
 \item{B_adj}{Number of bootstrap replications for the adjustment of residual variance proposed
-by Mendez and Lohr (2001). Defaults to 100.}
+by Mendez and Lohr (2001). Only used if \code{var.adjust = TRUE}. Defaults to 100.}
 
 \item{B_MC}{Number of bootstrap populations in the MC version for point estimates of (nonlinear) indicators.
 Defaults to 100.}
+
+\item{transformation}{Character. Either \code{"none"} (default) or \code{"log"}. If \code{"log"},
+the target variable \code{Y} is log-transformed before fitting the MERF for nonlinear indicators
+(\code{meanOnly = FALSE}), and back-transformed via \code{exp()} in the smearing and MSE bootstrap
+steps; non-finite back-transformed values become \code{NA}. Requires strictly positive \code{Y}.}
 
 \item{threshold}{Set a custom threshold for indicators, such as the head count ratio. The threshold
 can be a known numeric value or function of \code{Y}. If the threshold is \code{NULL}, \code{60 \%} of the
@@ -113,6 +126,14 @@ results are to be displayed. Only available if \code{aggData = FALSE}.
 Defaults to \code{NULL}.}
 
 \item{na.rm}{Logical. Whether missing values should be removed. Defaults to \code{TRUE}.}
+
+\item{select.indicator}{Character. Name(s) of a subset of indicators (e.g. \code{"Hcr"}) to
+compute, speeding up estimation when only one or a few indicators are needed. Only used if
+\code{meanOnly = FALSE}. If \code{NULL} (the default), all standard indicators are computed.}
+
+\item{seed}{Integer value used to seed R's random number generator once at the very
+start of the function, enabling reproducibility of the entire pipeline (point estimates
+and, if requested, the MSE bootstrap). If \code{NULL} (the default), no seed is set.}
 
 \item{...}{Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 Most important parameters are for instance \code{mtry} (number of variables to possibly split at
