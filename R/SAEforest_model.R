@@ -40,8 +40,11 @@
 #' @param MaxIterations Numeric value specifying the maximal amount of iterations for the
 #' MERF algorithm. Defaults to 25.
 #' @param B Number of bootstrap replications for MSE estimation procedures. Defaults to 100.
+#' @param var.adjust Logical. If \code{TRUE}, applies the variance bias correction of Krennmair
+#' et al. (2026) within the underlying \code{\link{MERFranger}} fits. Defaults to \code{FALSE},
+#' which reproduces the original, unadjusted MERF algorithm exactly.
 #' @param B_adj Number of bootstrap replications for the adjustment of residual variance proposed
-#' by Mendez and Lohr (2001). Defaults to 100.
+#' by Mendez and Lohr (2001). Only used if \code{var.adjust = TRUE}. Defaults to 100.
 #' @param na.rm Logical. Whether missing values should be removed. Defaults to \code{TRUE}.
 #' @param ... Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 #' Most important parameters are for instance \code{mtry} (number of variables to possibly split at
@@ -210,6 +213,7 @@ SAEforest_model <- function(Y,
                             ADDsamp_obs = 0,
                             w_min = 3,
                             B = 100,
+                            var.adjust = FALSE,
                             B_adj = 100,
                             B_MC = 100,
                             threshold = NULL,
@@ -285,6 +289,7 @@ SAEforest_model <- function(Y,
       ErrorTolerance = ErrorTolerance,
       MaxIterations = MaxIterations,
       B = B,
+      var.adjust = var.adjust,
       B_adj = B_adj,
       B_MC = B_MC,
       threshold = threshold,

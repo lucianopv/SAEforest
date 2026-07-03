@@ -73,6 +73,8 @@ point_nonLin <- function(Y,
                          importance = "none",
                          custom_indicator,
                          aggregate_to,
+                         var.adjust = FALSE,
+                         B_adj = 100,
                          ...) {
 
   random <- paste0(paste0("(1|", dName), ")")
@@ -94,6 +96,8 @@ point_nonLin <- function(Y,
     ErrorTolerance = ErrorTolerance,
     MaxIterations = MaxIterations,
     importance = importance,
+    var.adjust = var.adjust,
+    B_adj = B_adj,
     ...
   )
 
@@ -342,6 +346,8 @@ point_MC_nonLin <- function(Y,
                             importance = "none",
                             custom_indicator,
                             aggregate_to,
+                            var.adjust = FALSE,
+                            B_adj = 100,
                             ...) {
 
   domains <- names(table(pop_data[[dName]]))
@@ -365,6 +371,8 @@ point_MC_nonLin <- function(Y,
     ErrorTolerance = ErrorTolerance,
     MaxIterations = MaxIterations,
     importance = importance,
+    var.adjust = var.adjust,
+    B_adj = B_adj,
     ...
   )
 

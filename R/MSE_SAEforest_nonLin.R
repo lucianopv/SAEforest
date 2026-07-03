@@ -17,6 +17,8 @@ MSE_SAEforest_nonLin <- function(Y,
                                  wild,
                                  MC,
                                  aggregate_to,
+                                 var.adjust = FALSE,
+                                 B_adj = 100,
                                  ...) {
 
   rand_struc <- paste0(paste0("(1|", dName), ")")
@@ -113,7 +115,8 @@ MSE_SAEforest_nonLin <- function(Y,
       point_MC_nonLin(
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance, B_point = B_point,
-        MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to, ...
+        MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
+        var.adjust = var.adjust, B_adj = B_adj, ...
       )[[1]][, -1]
     }
   }
@@ -123,7 +126,8 @@ MSE_SAEforest_nonLin <- function(Y,
       point_nonLin(
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
-        MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to, ...
+        MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
+        var.adjust = var.adjust, B_adj = B_adj, ...
       )[[1]][, -1]
     }
   }

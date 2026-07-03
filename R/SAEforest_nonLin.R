@@ -12,6 +12,7 @@ SAEforest_nonLin <- function(Y,
                              ErrorTolerance = 0.0001,
                              MaxIterations = 25,
                              B = 100,
+                             var.adjust = FALSE,
                              B_adj = 100,
                              B_MC = 100,
                              threshold = NULL,
@@ -58,6 +59,8 @@ SAEforest_nonLin <- function(Y,
       importance = importance,
       custom_indicator = custom_indicator,
       aggregate_to = aggregate_to,
+      var.adjust = var.adjust,
+      B_adj = B_adj,
       ...
     )
 
@@ -105,6 +108,8 @@ SAEforest_nonLin <- function(Y,
         MC = FALSE,
         B_point = B_MC,
         aggregate_to = aggregate_to,
+        var.adjust = var.adjust,
+        B_adj = B_adj,
         ...
       )
 
@@ -138,6 +143,8 @@ SAEforest_nonLin <- function(Y,
         MC = FALSE,
         B_point = B_MC,
         aggregate_to = aggregate_to,
+        var.adjust = var.adjust,
+        B_adj = B_adj,
         ...
       )
 
@@ -171,6 +178,8 @@ SAEforest_nonLin <- function(Y,
       custom_indicator = custom_indicator,
       B_point = B_MC,
       aggregate_to = aggregate_to,
+      var.adjust = var.adjust,
+      B_adj = B_adj,
       ...
     )
 
@@ -218,6 +227,8 @@ SAEforest_nonLin <- function(Y,
         MC = TRUE,
         B_point = B_MC,
         aggregate_to = aggregate_to,
+        var.adjust = var.adjust,
+        B_adj = B_adj,
         ...
       )
 
@@ -251,6 +262,8 @@ SAEforest_nonLin <- function(Y,
         MC = TRUE,
         B_point = B_MC,
         aggregate_to = aggregate_to,
+        var.adjust = var.adjust,
+        B_adj = B_adj,
         ...
       )
 
