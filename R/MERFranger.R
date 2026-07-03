@@ -26,6 +26,11 @@
 #' random forest from the \pkg{ranger}. Must be 'none', 'impurity', 'impurity_corrected',
 #' 'permutation'. For further details see \link[ranger]{ranger}.
 #' @param na.rm Logical. Whether missing values should be removed. Defaults to \code{TRUE}.
+#' @param seed Integer value used to seed R's random number generator once at the start of the
+#' function, enabling reproducibility for direct, standalone calls of \code{MERFranger}. If
+#' \code{NULL} (the default), no seed is set. Note that \code{\link{SAEforest_model}} does not
+#' pass its own \code{seed} argument down to this function; each MERF fit called within a
+#' bootstrap therefore continues to draw its own randomness from the caller's seeded RNG stream.
 #' @param ... Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 #' Most important parameters are for instance \code{mtry} (number of variables to possibly split at
 #' in each node), or \code{num.trees} (number of trees). For further details on possible parameters
@@ -106,6 +111,7 @@ MERFranger <- function(Y,
                        ErrorTolerance = 0.0001,
                        MaxIterations = 25,
                        na.rm = TRUE,
+                       seed = NULL,
                        ...) {
 
   if (na.rm == TRUE) {
@@ -120,6 +126,8 @@ MERFranger <- function(Y,
     ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
     importance = importance, na.rm = na.rm
   )
+
+  if (!is.null(seed)) set.seed(seed)
 
   Target <- Y
   ContinueCondition <- TRUE

@@ -74,6 +74,9 @@
 #' population data that indicates the target domain level for which the
 #' results are to be displayed. Only available if \code{aggData = FALSE}.
 #' Defaults to \code{NULL}.
+#' @param seed Integer value used to seed R's random number generator once at the very
+#' start of the function, enabling reproducibility of the entire pipeline (point estimates
+#' and, if requested, the MSE bootstrap). If \code{NULL} (the default), no seed is set.
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
@@ -216,6 +219,7 @@ SAEforest_model <- function(Y,
                             MaxIterations = 25,
                             aggregate_to = NULL,
                             na.rm = TRUE,
+                            seed = NULL,
                             ...) {
 
   input_checks_model(
@@ -235,6 +239,7 @@ SAEforest_model <- function(Y,
   smp_data <- as.data.frame(smp_data)
   pop_data <- as.data.frame(pop_data)
 
+  if (!is.null(seed)) set.seed(seed)
 
   if (meanOnly == TRUE || aggData == TRUE) {
     return_obj <- SAEforest_mean(
