@@ -63,6 +63,19 @@
 #' \item{\code{MaxIterations}}{Numeric value specifying the maximal amount of iterations for the
 #' MERF algorithm.}
 #'
+#' If \code{var.adjust = TRUE}, the following additional elements are returned:
+#' \item{\code{K}}{List of the per-iteration Mendez and Lohr (2011) bootstrap bias terms that are
+#' subtracted from the naive residual variance.}
+#' \item{\code{sigma_e}}{List of the per-iteration residual standard deviations of the random effects
+#' model fitted on the bias-corrected residuals.}
+#' \item{\code{sigma_u}}{List of the per-iteration random intercept standard deviations.}
+#' \item{\code{RanEffSD_unadj}}{Numeric unadjusted standard deviation of random intercepts, taken from a
+#' reference model fitted on the uncorrected residuals.}
+#' \item{\code{ErrorSD_unadj}}{Numeric unadjusted residual standard deviation, taken from a reference model
+#' fitted on the uncorrected residuals.}
+#' \item{\code{sd_Mendez_Lohr_naive_unad}}{Numeric naive residual standard deviation
+#' \code{sd(Target - forest_preds)} at the final iteration, before bias correction.}
+#'
 #' @details
 #' There exists a generic function for \code{predict} for objects obtained by \code{MERFranger}.
 #'

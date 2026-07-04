@@ -88,6 +88,13 @@ model_adjusted <- SAEforest_model(
 summary(model_adjusted)
 ```
 
+The bias correction estimates a bootstrap variance term `K` from `B_adj`
+replications and subtracts it from the residual variance. With a very small
+`B_adj` (as used here to keep the example fast), `K` can exceed the residual
+variance; the adjusted standard deviation is then clamped to `0` and a warning
+is emitted. Use an adequately large `B_adj` (e.g. 100 or more) in real
+applications so the correction is stable.
+
 ## 3. A log-transformed fit
 
 `transformation = "log"` fits the MERF on `log(Y)` and back-transforms via
