@@ -12,6 +12,7 @@ MSE_SAEforest_mean <- function(Y,
                                ErrorTolerance = 0.0001,
                                MaxIterations = 25,
                                aggregate_to = NULL,
+                               cores = 1,
                                ...) {
 
   rand_struc <- paste0(paste0("(1|", dName), ")")
@@ -74,15 +75,18 @@ MSE_SAEforest_mean <- function(Y,
   }
 
   # use bootstrap samples to estimate
+  dots <- force_serial_threads(cores, ...)
   my_estim_f <- function(x) {
-    point_mean(
+    do.call(point_mean, c(list(
       Y = x$y_star, X = x[, colnames(X)], dName = dName, smp_data = x,
       pop_data = pop_data, initialRandomEffects = initialRandomEffects,
-      ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations, aggregate_to = aggregate_to, ...
-    )[[1]][, 2]
+      ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
+      aggregate_to = aggregate_to), dots))[[1]][, 2]
   }
 
-  tau_b <- pbapply::pbsapply(boots_sample, my_estim_f)
+  tau_b <- with_parallel_rng(cores, function(cl) {
+    pbapply::pbsapply(boots_sample, my_estim_f, cl = cl)
+  })
 
   MSE_estimates <- rowMeans((tau_star - tau_b)^2)
 

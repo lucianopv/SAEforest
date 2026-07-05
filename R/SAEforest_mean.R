@@ -20,6 +20,7 @@ SAEforest_mean <- function(Y,
                            aggregate_to = NULL,
                            na.rm = TRUE,
                            out_call,
+                           cores = 1,
                            ...) {
 
   # Point and MSE estimates for domain-level means and unit-level data ----------------------
@@ -101,6 +102,7 @@ SAEforest_mean <- function(Y,
         ErrorTolerance = ErrorTolerance,
         MaxIterations = MaxIterations,
         aggregate_to = aggregate_to,
+        cores = cores
       )
 
       result <- list(
@@ -194,6 +196,7 @@ SAEforest_mean <- function(Y,
         ErrorTolerance = ErrorTolerance,
         MaxIterations = MaxIterations,
         popnsize = popnsize,
+        cores = cores,
         ...
       )
 

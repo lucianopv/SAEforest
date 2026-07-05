@@ -45,3 +45,15 @@ test_that("invalid cores is rejected", {
   expect_error(do.call(SAEforest_model, c(base_args(d), list(cores = 0))),   "cores")
   expect_error(do.call(SAEforest_model, c(base_args(d), list(cores = 2.5))), "cores")
 })
+
+test_that("mean MSE is reproducible under a fixed (seed, cores) and invariant point estimates", {
+  skip_if_serial_only()
+  d <- tiny_saef_data()
+  margs <- list(Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp, pop_data = d$pop,
+                meanOnly = TRUE, MSE = "nonparametric", B = 2, num.trees = 50, mtry = 3)
+  set.seed(7); s <- do.call(SAEforest_model, c(margs, list(cores = 1, seed = 99)))
+  set.seed(7); p1 <- do.call(SAEforest_model, c(margs, list(cores = 2, seed = 99)))
+  set.seed(7); p2 <- do.call(SAEforest_model, c(margs, list(cores = 2, seed = 99)))
+  expect_equal(p1$MSE_Estimates, p2$MSE_Estimates)          # reproducible
+  expect_equal(p1$Indicators, s$Indicators, tolerance = 1e-8) # point estimates invariant
+})

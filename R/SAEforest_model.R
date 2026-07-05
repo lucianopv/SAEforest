@@ -303,6 +303,7 @@ SAEforest_model <- function(Y,
       aggregate_to = aggregate_to,
       na.rm = na.rm,
       out_call = out_call,
+      cores = cores,
       ...
     )
 

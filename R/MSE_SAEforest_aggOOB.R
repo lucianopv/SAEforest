@@ -11,6 +11,7 @@ MSE_SAEforest_aggOOB <- function(Y,
                                  initialRandomEffects,
                                  ErrorTolerance,
                                  MaxIterations,
+                                 cores = 1,
                                  ...) {
 
   dom <- smp_data[[dName]]
@@ -75,17 +76,19 @@ MSE_SAEforest_aggOOB <- function(Y,
     u_i[total_dom %in% in_dom, ] + insamp_ei
 
   # use bootstrap samples to estimate
+  dots <- force_serial_threads(cores, ...)
   my_estim_f <- function(x) {
-    point_meanAGG(
-      Y = x, X = X, dName = dName, smp_data = smp_data,
-      Xpop_agg = Xpop_agg, initialRandomEffects = initialRandomEffects,
-      ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
-      OOsample_obs = mod$OOsample_obs, ADDsamp_obs = mod$ADDsamp_obs,
-      w_min = mod$w_min, wSet = mod$wSet, verbose = FALSE, ...
-    )[[1]]$Mean
+    do.call(point_meanAGG, c(list(
+      Y = x, X = X, dName = dName, smp_data = smp_data, Xpop_agg = Xpop_agg,
+      initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
+      MaxIterations = MaxIterations, OOsample_obs = mod$OOsample_obs,
+      ADDsamp_obs = mod$ADDsamp_obs, w_min = mod$w_min, wSet = mod$wSet,
+      verbose = FALSE), dots))[[1]]$Mean
   }
 
-  tau_b <- pbapply::pbapply(y_star, 2, my_estim_f)
+  tau_b <- with_parallel_rng(cores, function(cl) {
+    pbapply::pbapply(y_star, 2, my_estim_f, cl = cl)
+  })
 
   MSE_estimates <- rowMeans((tau_star - tau_b)^2)
 
