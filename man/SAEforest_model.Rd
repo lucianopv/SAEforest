@@ -22,7 +22,7 @@ SAEforest_model(
   B = 100,
   var.adjust = FALSE,
   B_adj = 100,
-  adj_tol = 0,
+  adj_tol = 0.05,
   B_MC = 100,
   transformation = c("none", "log"),
   threshold = NULL,
@@ -102,7 +102,7 @@ for the adaptive early-stopping of the residual-variance bias correction when
 \code{var.adjust = TRUE}. The inner bootstrap fits forests in batches and stops
 once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least 20 forests, capped at
 \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
-always fits the full \code{B_adj} replicates. Defaults to \code{0}. Ignored when
+always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 \code{var.adjust = FALSE}.}
 
 \item{B_MC}{Number of bootstrap populations in the MC version for point estimates of (nonlinear) indicators.

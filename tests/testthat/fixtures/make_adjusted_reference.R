@@ -3,6 +3,9 @@
 # freeze the adjusted point estimates that test-regression-snapshot.R checks
 # against. Unlike make_upstream_reference.R, this file is expected to be
 # re-run whenever the variance-adjustment methodology intentionally changes.
+# adj_tol is left unset below, so this captures output under the adaptive
+# default (adj_tol = 0.05); the byte-identical legacy path (adj_tol = 0) is
+# pinned separately in adj_nonLin_none_legacy.rds.
 devtools::load_all(quiet = TRUE)
 source(testthat::test_path("helper-fixtures.R"))
 d <- tiny_saef_data()

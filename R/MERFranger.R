@@ -39,7 +39,7 @@
 #' \code{var.adjust = TRUE}. The inner bootstrap fits forests in batches and stops
 #' once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least 20 forests, capped at
 #' \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
-#' always fits the full \code{B_adj} replicates. Defaults to \code{0}. Ignored when
+#' always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 #' \code{var.adjust = FALSE}.
 #' @param seed Integer value used to seed R's random number generator once at the start of the
 #' function, enabling reproducibility for direct, standalone calls of \code{MERFranger}. If
@@ -138,7 +138,7 @@ MERFranger <- function(Y, X, random, data,
                        na.rm = TRUE,
                        var.adjust = FALSE,
                        B_adj = 100,
-                       adj_tol = 0,
+                       adj_tol = 0.05,
                        seed = NULL,
                        ...) {
 

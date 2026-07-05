@@ -14,3 +14,5 @@ News.md
 ^_attic$
 ^\.superpowers$
 ^docs/superpowers$
+^CLAUDE\.md$
+^PROJECT_NOTES\.md$
