@@ -2,11 +2,13 @@ test_that("adjust_ErrorSD_ returns a finite non-negative K", {
   d <- tiny_saef_data()
   set.seed(5)
   rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 50)
-  K <- adjust_ErrorSD_(Y = d$Y, X = d$X, smp_data = d$smp, rf = rf,
+  res <- adjust_ErrorSD_(Y = d$Y, X = d$X, smp_data = d$smp, rf = rf,
                        B = 2, num.trees = 50)
-  expect_length(K, 1)
-  expect_true(is.finite(K))
-  expect_gte(K, 0)
+  expect_named(res, c("K", "m"))
+  expect_length(res$K, 1)
+  expect_true(is.finite(res$K))
+  expect_gte(res$K, 0)
+  expect_equal(res$m, 2)
 })
 
 test_that("adjust_ErrorSD clamps to 0 (not NaN) and warns when K exceeds ErrorSD^2", {

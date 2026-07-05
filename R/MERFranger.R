@@ -131,6 +131,7 @@ MERFranger <- function(Y, X, random, data,
                        na.rm = TRUE,
                        var.adjust = FALSE,
                        B_adj = 100,
+                       adj_tol = 0,
                        seed = NULL,
                        ...) {
 
@@ -179,10 +180,12 @@ MERFranger <- function(Y, X, random, data,
       r_ij <- r_ij - mean(r_ij)
       naive_unadj <- sd(Target - forest_preds)
 
-      K <- K_list[[iterations]] <- adjust_ErrorSD_(
+      res_K <- adjust_ErrorSD_(
         Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
-        B = B_adj, ...
+        B = B_adj, adj_tol = adj_tol, ...
       )
+      K <- res_K$K
+      K_list[[iterations]] <- res_K$K
       if (K > naive_unadj^2) {
         warning("Variance bias correction K exceeds naive residual variance; ",
                 "clamping adjusted SD to 0 at iteration ", iterations, ".")
