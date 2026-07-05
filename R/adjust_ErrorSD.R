@@ -75,7 +75,10 @@ adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
       g <- c(g, mean((fit_b$predictions - rf$predictions)^2))
     }
     Kbar   <- mean(g)
-    rel_se <- if (Kbar > 0) (stats::sd(g) / sqrt(length(g))) / Kbar else Inf
+    # length(g) >= 2 guard: sd() of a length-1 vector is NA, which would make the
+    # stop condition below error on a degenerate B = 1. No-op for realistic B >= 2
+    # (first batch yields length(g) = min(B_BATCH, B) >= 2), so it changes no numbers.
+    rel_se <- if (length(g) >= 2 && Kbar > 0) (stats::sd(g) / sqrt(length(g))) / Kbar else Inf
     if (length(g) >= B_MIN && rel_se < adj_tol) break
     if (length(g) >= B) break
   }

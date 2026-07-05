@@ -41,3 +41,21 @@ test_that("NULL adj_tol behaves as 0 (legacy)", {
   set.seed(4); res <- adjust_ErrorSD_(d$Y, d$X, d$smp, rf, B = 6, adj_tol = NULL, num.trees = 50)
   expect_equal(res$m, 6)
 })
+
+test_that("adaptive path survives degenerate B = 1 (sd of length-1 g is NA)", {
+  d <- tiny_saef_data(); rf <- fit_rf(d)
+  set.seed(5)
+  res <- adjust_ErrorSD_(d$Y, d$X, d$smp, rf, B = 1, adj_tol = 0.05, num.trees = 50)
+  expect_equal(res$m, 1)
+  expect_true(is.finite(res$K) && res$K >= 0)
+})
+
+test_that("MERFranger runs with var.adjust=TRUE, B_adj=1, adj_tol>0 (no crash)", {
+  d <- tiny_saef_data()
+  expect_no_error(
+    mod <- MERFranger(Y = d$Y, X = d$X, random = "(1|district)", data = d$smp,
+                      var.adjust = TRUE, B_adj = 1, adj_tol = 0.05,
+                      num.trees = 50, seed = 1)
+  )
+  expect_true(is.finite(mod$ErrorSD))
+})
