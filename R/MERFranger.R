@@ -156,7 +156,7 @@ MERFranger <- function(Y, X, random, data,
   oldLogLik <- 0
 
   K_list <- list(); sigma_e <- list(); sigma_u <- list()
-  lmefit_ <- NULL; r_ij_new <- NULL; naive_unadj <- NA_real_
+  r_ij_new <- NULL; naive_unadj <- NA_real_
 
   while (ContinueCondition) {
     iterations <- iterations + 1
@@ -175,9 +175,6 @@ MERFranger <- function(Y, X, random, data,
       AdjustedTarget <- Target - (AllEffects - forest_preds)
     } else {
       ## ---- variance-adjusted path (Krennmair et al., 2026) ----
-      Input_lmefit_ <- Target - forest_preds
-      lmefit_ <- lme4::lmer(as.formula(paste0("Input_lmefit_ ~", random)),
-                            data = data, REML = TRUE)
       r_ij <- Target - forest_preds
       r_ij <- r_ij - mean(r_ij)
       naive_unadj <- sd(Target - forest_preds)
@@ -226,6 +223,13 @@ MERFranger <- function(Y, X, random, data,
   )
 
   if (var.adjust) {
+    # Unadjusted reporting fit: fit ONCE after convergence on the final forest's
+    # raw marginal residuals. This was previously refit every EM iteration with only
+    # the last retained; lme4::lmer uses no RNG, so hoisting it is byte-identical and
+    # saves IterationsUsed-1 lmer fits.
+    Input_lmefit_ <- Target - forest_preds
+    lmefit_ <- lme4::lmer(as.formula(paste0("Input_lmefit_ ~", random)),
+                          data = data, REML = TRUE)
     result$K <- K_list
     result$sigma_e <- sigma_e
     result$sigma_u <- sigma_u
