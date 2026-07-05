@@ -45,6 +45,13 @@
 #' which reproduces the original, unadjusted MERF algorithm exactly.
 #' @param B_adj Number of bootstrap replications for the adjustment of residual variance proposed
 #' by Mendez and Lohr (2001). Only used if \code{var.adjust = TRUE}. Defaults to 100.
+#' @param adj_tol Numeric \eqn{\ge 0}. Relative Monte-Carlo standard-error tolerance
+#' for the adaptive early-stopping of the residual-variance bias correction when
+#' \code{var.adjust = TRUE}. The inner bootstrap fits forests in batches and stops
+#' once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least 20 forests, capped at
+#' \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
+#' always fits the full \code{B_adj} replicates. Defaults to \code{0}. Ignored when
+#' \code{var.adjust = FALSE}.
 #' @param transformation Character. Either \code{"none"} (default) or \code{"log"}. If \code{"log"},
 #' the target variable \code{Y} is log-transformed before fitting the MERF for nonlinear indicators
 #' (\code{meanOnly = FALSE}), and back-transformed via \code{exp()} in the smearing and MSE bootstrap
@@ -222,6 +229,7 @@ SAEforest_model <- function(Y,
                             B = 100,
                             var.adjust = FALSE,
                             B_adj = 100,
+                            adj_tol = 0,
                             B_MC = 100,
                             transformation = c("none", "log"),
                             threshold = NULL,
@@ -239,7 +247,7 @@ SAEforest_model <- function(Y,
     Y = Y, X = X, dName = dName, smp_data = smp_data, pop_data = pop_data,
     MSE = MSE, meanOnly = meanOnly, aggData = aggData, smearing = smearing,
     popnsize = popnsize, importance = importance, OOsample_obs = OOsample_obs,
-    ADDsamp_obs = ADDsamp_obs, w_min = w_min, B = B, B_adj = B_adj, B_MC = B_MC,
+    ADDsamp_obs = ADDsamp_obs, w_min = w_min, B = B, B_adj = B_adj, adj_tol = adj_tol, B_MC = B_MC,
     threshold = threshold, custom_indicator = custom_indicator,
     initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
     MaxIterations = MaxIterations, aggregate_to = aggregate_to, na.rm = na.rm
@@ -311,6 +319,7 @@ SAEforest_model <- function(Y,
       B = B,
       var.adjust = var.adjust,
       B_adj = B_adj,
+      adj_tol = adj_tol,
       B_MC = B_MC,
       transformation = transformation,
       threshold = threshold,

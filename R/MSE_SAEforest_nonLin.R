@@ -19,6 +19,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  aggregate_to,
                                  var.adjust = FALSE,
                                  B_adj = 100,
+                                 adj_tol = 0,
                                  transformation = c("none", "log"),
                                  select.indicator = NULL,
                                  ...) {
@@ -126,7 +127,7 @@ MSE_SAEforest_nonLin <- function(Y,
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance, B_point = B_point,
         MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, select.indicator = select.indicator, ...
+        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol, select.indicator = select.indicator, ...
       )[[1]][, -1]
     }
   }
@@ -137,7 +138,7 @@ MSE_SAEforest_nonLin <- function(Y,
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
         initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
         MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, transformation = transformation,
+        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol, transformation = transformation,
         select.indicator = select.indicator, ...
       )[[1]][, -1]
     }

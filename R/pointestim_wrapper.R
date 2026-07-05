@@ -75,6 +75,7 @@ point_nonLin <- function(Y,
                          aggregate_to,
                          var.adjust = FALSE,
                          B_adj = 100,
+                         adj_tol = 0,
                          transformation = c("none", "log"),
                          select.indicator = NULL,
                          ...) {
@@ -107,6 +108,7 @@ point_nonLin <- function(Y,
     importance = importance,
     var.adjust = var.adjust,
     B_adj = B_adj,
+    adj_tol = adj_tol,
     ...
   )
 
@@ -362,6 +364,7 @@ point_MC_nonLin <- function(Y,
                             aggregate_to,
                             var.adjust = FALSE,
                             B_adj = 100,
+                            adj_tol = 0,
                             select.indicator = NULL,
                             ...) {
 
@@ -388,6 +391,7 @@ point_MC_nonLin <- function(Y,
     importance = importance,
     var.adjust = var.adjust,
     B_adj = B_adj,
+    adj_tol = adj_tol,
     ...
   )
 

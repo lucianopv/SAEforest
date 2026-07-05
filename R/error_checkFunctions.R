@@ -11,7 +11,7 @@ class_error <- function(object) {
 
 input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, aggData, smearing,
                                popnsize, importance, OOsample_obs, ADDsamp_obs, w_min, B, B_adj,
-                               B_MC, threshold, custom_indicator, initialRandomEffects, ErrorTolerance,
+                               adj_tol, B_MC, threshold, custom_indicator, initialRandomEffects, ErrorTolerance,
                                MaxIterations, aggregate_to, na.rm) {
   if (!is.numeric(Y) || !data.frame(Y) %in% smp_data) {
     stop("Y must be a continuous vector containing the target variable. Additionally Y must be included in the data frame of survey sample data. See also help(SAEforest_model)")
@@ -102,6 +102,10 @@ input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, a
 
   if (MSE != "none" && !(is.numeric(B_adj) && length(B_adj) == 1 && B_adj > 1)) {
     stop("If MSE estimation is specified, B_adj needs to be a single integer value, determining the number of bootstrap replications for the adjustemt of residual variance. The value must be larger than 1. See also help(SAEforest_model).")
+  }
+
+  if (!is.null(adj_tol) && !(is.numeric(adj_tol) && length(adj_tol) == 1 && adj_tol >= 0)) {
+    stop("adj_tol must be a single non-negative numeric value (0 disables adaptive early-stop of the residual-variance bias correction). See help(SAEforest_model).")
   }
 
   if (smearing != TRUE && !(is.numeric(B_MC) && length(B_MC) == 1 && B_MC > 1)) {
