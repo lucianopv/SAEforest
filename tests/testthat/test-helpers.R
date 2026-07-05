@@ -27,6 +27,19 @@ test_that("calc_indicat computes a correct head count ratio", {
   expect_equal(unname(ind[["Hcr"]]), mean(y < 3))
 })
 
+test_that("calc_indicat rejects an unknown select.indicator with a clear error", {
+  y <- c(1, 2, 3, 4, 100)
+  err <- tryCatch(
+    calc_indicat(y, threshold = 3, custom = NULL, select.indicator = "Nope"),
+    error = function(e) conditionMessage(e)
+  )
+  # A helpful message that names the offender and lists valid indicators,
+  # NOT the cryptic base-R "subscript out of bounds".
+  expect_match(err, "select.indicator")
+  expect_match(err, "Hcr")
+  expect_false(grepl("subscript out of bounds", err))
+})
+
 test_that("ran_comp stays finite when within-domain residual SD is zero (single-obs domains)", {
   # Single-observation domains force forest_eij (the within-domain residual
   # deviation) to be exactly 0 for every row, so sd(forest_eij) == 0. The

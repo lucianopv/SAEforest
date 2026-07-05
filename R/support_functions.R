@@ -39,6 +39,14 @@ calc_indicat <- function(Y, threshold, custom, select.indicator = NULL) {
   }
 
   if (!is.null(select.indicator)) {
+    invalid <- setdiff(select.indicator, colnames(indicators))
+    if (length(invalid) > 0L) {
+      stop(
+        "Invalid 'select.indicator' value(s): ", paste(invalid, collapse = ", "),
+        ". Valid indicators are: ", paste(colnames(indicators), collapse = ", "), ".",
+        call. = FALSE
+      )
+    }
     indicators <- indicators[, select.indicator]
   }
 
