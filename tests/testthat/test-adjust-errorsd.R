@@ -59,3 +59,13 @@ test_that("MERFranger runs with var.adjust=TRUE, B_adj=1, adj_tol>0 (no crash)",
   )
   expect_true(is.finite(mod$ErrorSD))
 })
+
+test_that("var.adjust=TRUE rejects B_adj < 1 with a clear error (no NaN crash)", {
+  d <- tiny_saef_data()
+  expect_error(
+    MERFranger(Y = d$Y, X = d$X, random = "(1|district)", data = d$smp,
+               var.adjust = TRUE, B_adj = 0, adj_tol = 0.05,
+               num.trees = 50, seed = 1),
+    "B_adj"
+  )
+})

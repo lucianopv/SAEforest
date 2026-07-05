@@ -37,8 +37,8 @@
 #' @param adj_tol Numeric \eqn{\ge 0}. Relative Monte-Carlo standard-error tolerance
 #' for the adaptive early-stopping of the residual-variance bias correction when
 #' \code{var.adjust = TRUE}. The inner bootstrap fits forests in batches and stops
-#' once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least 20 forests, capped at
-#' \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
+#' once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least \code{min(20, B_adj)}
+#' forests, capped at \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
 #' always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 #' \code{var.adjust = FALSE}.
 #' @param seed Integer value used to seed R's random number generator once at the start of the
@@ -154,6 +154,11 @@ MERFranger <- function(Y, X, random, data,
     ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
     importance = importance, na.rm = na.rm
   )
+
+  if (isTRUE(var.adjust) &&
+      !(is.numeric(B_adj) && length(B_adj) == 1 && !is.na(B_adj) && B_adj >= 1)) {
+    stop("When var.adjust = TRUE, B_adj must be a single numeric value >= 1.")
+  }
 
   if (!is.null(seed)) set.seed(seed)
 

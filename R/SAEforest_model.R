@@ -48,8 +48,8 @@
 #' @param adj_tol Numeric \eqn{\ge 0}. Relative Monte-Carlo standard-error tolerance
 #' for the adaptive early-stopping of the residual-variance bias correction when
 #' \code{var.adjust = TRUE}. The inner bootstrap fits forests in batches and stops
-#' once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least 20 forests, capped at
-#' \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
+#' once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least \code{min(20, B_adj)}
+#' forests, capped at \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
 #' always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 #' \code{var.adjust = FALSE}.
 #' @param transformation Character. Either \code{"none"} (default) or \code{"log"}. If \code{"log"},
