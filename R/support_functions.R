@@ -352,3 +352,47 @@ plog <- function(z, eps, d = 0) {
   llogz <- matrix(out, zsize[1], zsize[2])
   return(llogz)
 }
+
+
+# Run a bootstrap loop optionally in parallel across `cores` fork workers with
+# reproducible L'Ecuyer streams, scoped to this call. `expr` is function(cl) that
+# invokes the pbapply call with the given cl. cores == 1 -> serial (cl = NULL), no
+# RNG side effects (byte-identical to a bare pbapply(..., cl = NULL) call). cores > 1
+# -> L'Ecuyer-CMRG seeded from a value drawn from the current (already-seeded) stream,
+# so the parallel bootstrap is reproducible for a fixed (top-level seed, cores); the
+# caller's RNGkind and .Random.seed are restored on exit so neither the session nor
+# the already-computed point estimates are affected.
+with_parallel_rng <- function(cores, expr) {
+  if (!(cores > 1L)) {
+    return(expr(NULL))
+  }
+  par_seed <- sample.int(.Machine$integer.max, 1L)
+  old_kind <- RNGkind()
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
+    get(".Random.seed", envir = .GlobalEnv)
+  } else {
+    NULL
+  }
+  on.exit({
+    RNGkind(old_kind[1], old_kind[2], old_kind[3])
+    if (!is.null(old_seed)) assign(".Random.seed", old_seed, envir = .GlobalEnv)
+  }, add = TRUE)
+  RNGkind("L'Ecuyer-CMRG")
+  set.seed(par_seed)
+  expr(cores)
+}
+
+# Extra estimator arguments (the MSE driver's `...`) with ranger's num.threads forced
+# to 1 when running in parallel, so each fork worker uses one thread (no
+# oversubscription). cores == 1 returns the args unchanged. Warns once if the caller
+# set a conflicting num.threads.
+force_serial_threads <- function(cores, ...) {
+  dots <- list(...)
+  if (cores > 1L) {
+    if (!is.null(dots$num.threads) && !identical(as.integer(dots$num.threads), 1L)) {
+      warning("num.threads forced to 1 inside parallel MSE workers (cores > 1) to avoid oversubscription.")
+    }
+    dots$num.threads <- 1L
+  }
+  dots
+}
