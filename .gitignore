@@ -7,8 +7,10 @@ docs
 # Claude / tooling — never publish
 .claude/
 CLAUDE.md
+PROJECT_NOTES.md
 _attic/
 scratchpad/
+.superpowers/
 *.local.*
 
 # build artifacts
