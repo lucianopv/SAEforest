@@ -23,6 +23,7 @@ SAEforest_nonLin <- function(Y,
                              na.rm = TRUE,
                              select.indicator = NULL,
                              out_call,
+                             cores = 1,
                              ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -127,6 +128,7 @@ SAEforest_nonLin <- function(Y,
         adj_tol = adj_tol,
         transformation = transformation,
         select.indicator = select.indicator,
+        cores = cores,
         ...
       )
 
@@ -165,6 +167,7 @@ SAEforest_nonLin <- function(Y,
         adj_tol = adj_tol,
         transformation = transformation,
         select.indicator = select.indicator,
+        cores = cores,
         ...
       )
 
@@ -259,6 +262,7 @@ SAEforest_nonLin <- function(Y,
         B_adj = B_adj,
         adj_tol = adj_tol,
         select.indicator = select.indicator,
+        cores = cores,
         ...
       )
 
@@ -296,6 +300,7 @@ SAEforest_nonLin <- function(Y,
         B_adj = B_adj,
         adj_tol = adj_tol,
         select.indicator = select.indicator,
+        cores = cores,
         ...
       )
 

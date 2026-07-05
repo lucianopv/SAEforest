@@ -22,6 +22,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  adj_tol = 0,
                                  transformation = c("none", "log"),
                                  select.indicator = NULL,
+                                 cores = 1,
                                  ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -122,29 +123,34 @@ MSE_SAEforest_nonLin <- function(Y,
 
   # uses sample to estimate tau_b
   if (MC == TRUE) {
+    dots <- force_serial_threads(cores, ...)
     my_estim_f <- function(x) {
-      point_MC_nonLin(
-        Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
-        initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance, B_point = B_point,
-        MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol, select.indicator = select.indicator, ...
-      )[[1]][, -1]
+      do.call(point_MC_nonLin, c(list(
+        Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold,
+        smp_data = x, pop_data = pop_data, initialRandomEffects = initialRandomEffects,
+        ErrorTolerance = ErrorTolerance, B_point = B_point, MaxIterations = MaxIterations,
+        custom_indicator = custom_indicator, aggregate_to = aggregate_to,
+        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol,
+        select.indicator = select.indicator), dots))[[1]][, -1]
     }
   }
 
   if (MC == FALSE) {
+    dots <- force_serial_threads(cores, ...)
     my_estim_f <- function(x) {
-      point_nonLin(
-        Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold, smp_data = x, pop_data = pop_data,
-        initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
-        MaxIterations = MaxIterations, custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol, transformation = transformation,
-        select.indicator = select.indicator, ...
-      )[[1]][, -1]
+      do.call(point_nonLin, c(list(
+        Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold,
+        smp_data = x, pop_data = pop_data, initialRandomEffects = initialRandomEffects,
+        ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
+        custom_indicator = custom_indicator, aggregate_to = aggregate_to,
+        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol,
+        transformation = transformation, select.indicator = select.indicator), dots))[[1]][, -1]
     }
   }
 
-  tau_b <- pbapply::pbsapply(boots_sample, my_estim_f, simplify = FALSE)
+  tau_b <- with_parallel_rng(cores, function(cl) {
+    pbapply::pbsapply(boots_sample, my_estim_f, cl = cl, simplify = FALSE)
+  })
 
   mean_square <- function(x, y) {
     (x - y)^2

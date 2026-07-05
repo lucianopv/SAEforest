@@ -26,6 +26,7 @@ Imports:
     haven,
     ineq,
     lme4,
+    parallel,
     pbapply,
     pdp,
     ranger,

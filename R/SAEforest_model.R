@@ -94,6 +94,13 @@
 #' @param seed Integer value used to seed R's random number generator once at the very
 #' start of the function, enabling reproducibility of the entire pipeline (point estimates
 #' and, if requested, the MSE bootstrap). If \code{NULL} (the default), no seed is set.
+#' @param cores Integer \eqn{\ge 1}. Number of fork worker processes for the MSE
+#' bootstrap (Linux/macOS). \code{cores = 1} (the default) runs serially and is
+#' byte-identical to previous versions. \code{cores > 1} parallelizes the MSE
+#' bootstrap and forces \code{ranger}'s \code{num.threads = 1} inside each worker to
+#' avoid oversubscription; results are reproducible for a fixed \code{(seed, cores)}
+#' but may differ from the serial MSE (Monte-Carlo noise of the bootstrap). Point
+#' estimates are unaffected by \code{cores}. Ignored on Windows (falls back to serial).
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
@@ -241,13 +248,14 @@ SAEforest_model <- function(Y,
                             na.rm = TRUE,
                             select.indicator = NULL,
                             seed = NULL,
+                            cores = 1,
                             ...) {
 
   input_checks_model(
     Y = Y, X = X, dName = dName, smp_data = smp_data, pop_data = pop_data,
     MSE = MSE, meanOnly = meanOnly, aggData = aggData, smearing = smearing,
     popnsize = popnsize, importance = importance, OOsample_obs = OOsample_obs,
-    ADDsamp_obs = ADDsamp_obs, w_min = w_min, B = B, B_adj = B_adj, adj_tol = adj_tol, B_MC = B_MC,
+    ADDsamp_obs = ADDsamp_obs, w_min = w_min, B = B, B_adj = B_adj, adj_tol = adj_tol, cores = cores, B_MC = B_MC,
     threshold = threshold, custom_indicator = custom_indicator,
     initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
     MaxIterations = MaxIterations, aggregate_to = aggregate_to, na.rm = na.rm
@@ -328,6 +336,7 @@ SAEforest_model <- function(Y,
       na.rm = na.rm,
       select.indicator = select.indicator,
       out_call = out_call,
+      cores = cores,
       ...
     )
 
