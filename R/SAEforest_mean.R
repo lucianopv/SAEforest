@@ -102,7 +102,8 @@ SAEforest_mean <- function(Y,
         ErrorTolerance = ErrorTolerance,
         MaxIterations = MaxIterations,
         aggregate_to = aggregate_to,
-        cores = cores
+        cores = cores,
+        ...
       )
 
       result <- list(
