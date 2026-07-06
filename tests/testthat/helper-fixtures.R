@@ -28,3 +28,38 @@ tiny_saef_data <- function(n_dom = 4, per_dom = 8, seed = 2026) {
     dName = "district"
   )
 }
+
+# Tiny deterministic aggData=TRUE fixture (aggregated-covariate / ELM-calibration path),
+# using SAEforest's own bundled data (no emdi dependency). Restricted to in-sample-only
+# domains so the out-of-sample augmentation branch of point_meanAGG() is never exercised.
+tiny_agg_data <- function(seed = 2026, per_dom = 15) {
+  data("eusilcA_smp", "eusilcA_popAgg", "popNsize", package = "SAEforest", envir = environment())
+
+  doms <- c("Graz (Stadt)", "Linz (Stadt)", "Salzburg-Umgebung")
+  covars <- c("eqsize", "cash", "self_empl", "unempl_ben")
+
+  set.seed(seed)
+  smp <- do.call(rbind, lapply(doms, function(d) {
+    rows <- which(as.character(eusilcA_smp$district) == d)
+    eusilcA_smp[sample(rows, min(per_dom, length(rows))), ]
+  }))
+  smp <- droplevels(smp)
+
+  # popAgg and popN must have identical row counts AND identical dName ordering
+  # (error_checkFunctions.R checks all.equal(popnsize[[dName]], pop_data[[dName]])).
+  popAgg <- eusilcA_popAgg[match(doms, as.character(eusilcA_popAgg$district)), ]
+  popAgg <- droplevels(popAgg)
+  rownames(popAgg) <- NULL
+
+  popN <- popNsize[match(doms, as.character(popNsize$district)), ]
+  rownames(popN) <- NULL
+
+  list(
+    Y = smp$eqIncome,
+    X = smp[, covars],
+    smp = smp[, c("district", covars, "eqIncome")],
+    popAgg = popAgg[, c("district", covars)],
+    popN = popN,
+    dName = "district"
+  )
+}

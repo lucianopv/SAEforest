@@ -57,3 +57,23 @@ test_that("mean MSE is reproducible under a fixed (seed, cores) and invariant po
   expect_equal(p1$MSE_Estimates, p2$MSE_Estimates)          # reproducible
   expect_equal(p1$Indicators, s$Indicators, tolerance = 1e-8) # point estimates invariant
 })
+
+test_that("aggData MSE (aggOOB) is reproducible under cores and point estimates are invariant", {
+  skip_if_serial_only()
+  d <- tiny_agg_data()
+  aggd_args <- list(
+    Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp, pop_data = d$popAgg,
+    aggData = TRUE, popnsize = d$popN, MSE = "nonparametric", B = 2,
+    num.trees = 50, mtry = 2, importance = "impurity"
+  )
+
+  set.seed(7)
+  s  <- suppressMessages(do.call(SAEforest_model, c(aggd_args, list(cores = 1, seed = 99))))
+  set.seed(7)
+  p1 <- suppressMessages(do.call(SAEforest_model, c(aggd_args, list(cores = 2, seed = 99))))
+  set.seed(7)
+  p2 <- suppressMessages(do.call(SAEforest_model, c(aggd_args, list(cores = 2, seed = 99))))
+
+  expect_equal(p1$MSE_Estimates, p2$MSE_Estimates)           # reproducible
+  expect_equal(p1$Indicators, s$Indicators, tolerance = 1e-8) # point estimates invariant
+})
