@@ -9,7 +9,6 @@ class_error <- function(object) {
 
 # Checking inputs for the main function SAEforest_model ----------------------------------
 #' @importFrom parallel detectCores
-
 input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, aggData, smearing,
                                popnsize, importance, OOsample_obs, ADDsamp_obs, w_min, B, B_adj,
                                adj_tol, cores, B_MC, threshold, custom_indicator, initialRandomEffects, ErrorTolerance,
@@ -109,13 +108,14 @@ input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, a
     stop("adj_tol must be a single non-negative numeric value (0 disables adaptive early-stop of the residual-variance bias correction). See help(SAEforest_model).")
   }
 
-  if (!(is.numeric(cores) && length(cores) == 1 && !is.na(cores) &&
-        cores >= 1 && cores == as.integer(cores))) {
+  if (!(is.numeric(cores) && length(cores) == 1 && is.finite(cores) &&
+        cores >= 1 && cores == round(cores))) {
     stop("cores must be a single positive integer (1 = serial). See help(SAEforest_model).")
   }
-  if (cores > parallel::detectCores()) {
-    warning("cores (", cores, ") exceeds the number of detected cores (",
-            parallel::detectCores(), "); this will oversubscribe the machine.")
+  n_cores <- parallel::detectCores()
+  if (!is.na(n_cores) && cores > n_cores) {
+    warning("cores (", cores, ") exceeds the number of detected cores (", n_cores,
+            "); this will oversubscribe the machine.")
   }
 
   if (smearing != TRUE && !(is.numeric(B_MC) && length(B_MC) == 1 && B_MC > 1)) {
