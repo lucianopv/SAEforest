@@ -5,26 +5,54 @@
 # Calculation of indicators from smearing or MC pseudo-populations ------------------------
 calc_indicat <- function(Y, threshold, custom, select.indicator = NULL) {
 
-  hcr_function <- function(y, threshold) {
-    mean(y < threshold, na.rm = TRUE)
+  want <- function(name) is.null(select.indicator) || name %in% select.indicator
+
+  Ys <- sort(Y)  # sort() drops NA by default (na.last = NA), matching quantile(na.rm = TRUE)
+  n <- length(Ys)
+
+  q_at <- function(p) {
+    h <- (n - 1) * p + 1
+    lo <- floor(h); hi <- ceiling(h)
+    Ys[lo] + (h - lo) * (Ys[hi] - Ys[lo])
   }
-  qsr_function <- function(y) {
-    sum(y[(y > quantile(y, 0.8, na.rm = TRUE))]) / sum(y[(y < quantile(y, 0.2, na.rm = TRUE))])
-  }
-  pgap_function <- function(y, threshold) {
-    y[y < 0] <- NA
-    mean((y < threshold) * (threshold - y) / threshold, na.rm = TRUE)
-  }
-  gini_function <- function(y) {
-    y[y < 0] <- NA
-    ineq::Gini(y, na.rm = TRUE)
-  }
-  quant_preds <- quantile(Y, prob = c(0.1, 0.25, 0.5, 0.75, 0.9), na.rm = TRUE)
+
   mean_est <- mean(Y, na.rm = TRUE)
-  Gini_est <- gini_function(y = Y)
-  Hcr_est <- hcr_function(y = Y, threshold = threshold)
-  Qsr_est <- qsr_function(y = Y)
-  Pgap_est <- pgap_function(y = Y, threshold = threshold)
+  Hcr_est <- mean(Y < threshold, na.rm = TRUE)
+
+  quant_preds <- c(Quant10 = NA_real_, Quant25 = NA_real_, Median = NA_real_,
+                    Quant75 = NA_real_, Quant90 = NA_real_)
+  if (want("Quant10") || want("Quant25") || want("Median") || want("Quant75") || want("Quant90")) {
+    quant_preds <- c(Quant10 = q_at(0.1), Quant25 = q_at(0.25), Median = q_at(0.5),
+                      Quant75 = q_at(0.75), Quant90 = q_at(0.9))
+  }
+
+  Gini_est <- NA_real_
+  if (want("Gini")) {
+    # ineq::Gini(y, na.rm = TRUE) does y <- as.numeric(na.omit(y)) internally after
+    # y[y < 0] <- NA -- reuse the already-sorted Ys directly when there are no
+    # negatives to remove (the common case, e.g. after exp() back-transformation),
+    # otherwise re-sort the filtered subset.
+    Yg <- if (any(Y < 0, na.rm = TRUE)) sort(Y[Y >= 0 & !is.na(Y)]) else Ys
+    ng <- length(Yg)
+    i <- seq_len(ng)
+    Gini_est <- (2 * sum(i * Yg) / (ng * sum(Yg))) - (ng + 1) / ng
+  }
+
+  Pgap_est <- NA_real_
+  if (want("Pgap")) {
+    y2 <- Y
+    y2[y2 < 0] <- NA
+    Pgap_est <- mean((y2 < threshold) * (threshold - y2) / threshold, na.rm = TRUE)
+  }
+
+  Qsr_est <- NA_real_
+  if (want("Qsr")) {
+    q80 <- q_at(0.8); q20 <- q_at(0.2)
+    # Uses the ORIGINAL Y (not the NA-stripped Ys) so NA propagates identically to
+    # the original qsr_function(y) -- do not change this to Ys, it would silently
+    # produce a different (non-NA) result when Y contains NA.
+    Qsr_est <- sum(Y[(Y > q80)]) / sum(Y[(Y < q20)])
+  }
 
   indicators <- cbind(mean_est, t(quant_preds), Gini_est, Hcr_est, Pgap_est, Qsr_est)
 
