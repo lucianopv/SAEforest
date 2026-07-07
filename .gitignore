@@ -12,6 +12,7 @@ _attic/
 scratchpad/
 .superpowers/
 *.local.*
+.worktrees/
 
 # build artifacts
 ..Rcheck/
