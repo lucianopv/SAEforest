@@ -165,7 +165,12 @@ of Monte-Carlo noise in the smearing approximation itself for speed --
 Duan (1983) smearing does not require using every available residual for a
 stable empirical distribution, but this is an approximation, unlike every
 other performance option on this function, and must be chosen deliberately.
-Ignored (uses all residuals) if greater than or equal to the number available.}
+Ignored (uses all residuals) if greater than or equal to the number available.
+Only affects point estimates -- the MSE bootstrap (\code{MSE = "wild"} or
+\code{"nonparametric"}) always uses the full residual pool in every replicate,
+regardless of this setting, so combining a non-\code{NULL} value here with an
+MSE request estimates uncertainty for a different (full-residual) estimator
+than the point estimates actually returned.}
 
 \item{...}{Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 Most important parameters are for instance \code{mtry} (number of variables to possibly split at

@@ -113,6 +113,11 @@
 #' stable empirical distribution, but this is an approximation, unlike every
 #' other performance option on this function, and must be chosen deliberately.
 #' Ignored (uses all residuals) if greater than or equal to the number available.
+#' Only affects point estimates -- the MSE bootstrap (\code{MSE = "wild"} or
+#' \code{"nonparametric"}) always uses the full residual pool in every replicate,
+#' regardless of this setting, so combining a non-\code{NULL} value here with an
+#' MSE request estimates uncertainty for a different (full-residual) estimator
+#' than the point estimates actually returned.
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
