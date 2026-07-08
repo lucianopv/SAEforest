@@ -125,12 +125,21 @@ point_nonLin <- function(Y,
     dName = aggregate_to
   }
 
+  exp_residuals <- if (transformation == "log") exp(unit_model$OOBresiduals) else NULL
+
   for (i in seq_along(domains)) {
-    smear_i <- matrix(rep(unit_model$OOBresiduals, popSize[i]), nrow = popSize[i], ncol = length(unit_model$OOBresiduals), byrow = TRUE)
-    smear_i <- smear_i + unit_preds[pop_data[[dName]] == domains[i]]
+    domain_preds <- unit_preds[pop_data[[dName]] == domains[i]]
     if (transformation == "log") {
-      val_i <- exp(c(smear_i)); val_i[!is.finite(val_i)] <- NA
+      # exp(a + b) == exp(a) * exp(b): exp_residuals is precomputed once above
+      # (shared across every domain), so only exp(domain_preds) -- a vector the
+      # size of this one domain's population, not the full residual count -- is
+      # computed per iteration.
+      val_i <- c(outer(exp(domain_preds), exp_residuals, "*"))
+      val_i[!is.finite(val_i)] <- NA
     } else {
+      smear_i <- matrix(rep(unit_model$OOBresiduals, popSize[i]), nrow = popSize[i],
+                         ncol = length(unit_model$OOBresiduals), byrow = TRUE)
+      smear_i <- smear_i + domain_preds
       val_i <- c(smear_i)
     }
     smear_list[[i]] <- calc_indicat(val_i, threshold = thresh, custom = custom_indicator,
