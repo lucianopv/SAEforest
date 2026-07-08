@@ -62,6 +62,16 @@
 #' residual-variance rescaling and is itself averaged over \code{B} replicates, a looser
 #' \code{adj_tol_mse} trades a small amount of Monte-Carlo noise in \code{K} per replicate
 #' (which washes out on averaging) for substantially fewer inner forest fits.
+#' @param mse_tol Numeric \eqn{\ge 0}. Relative Monte-Carlo standard-error tolerance
+#' for the adaptive early-stopping of the outer MSE bootstrap (\code{MSE = "wild"} or
+#' \code{"nonparametric"}) for non-linear indicators (\code{meanOnly = FALSE}). The bootstrap
+#' refits are run in batches and stop once the median (across domains and indicators) relative
+#' Monte-Carlo standard error of the running MSE estimate drops below \code{mse_tol} (after at
+#' least \code{min(20, B)} replicates, capped at \code{B}). \code{mse_tol = 0} (the default) disables
+#' early-stopping and always runs the full \code{B} replicates -- this is the exact, unadjusted
+#' dispatch and is byte-identical to previous versions. Currently only affects the non-linear
+#' (\code{meanOnly = FALSE}) MSE bootstrap; the mean and aggregated-covariate (\code{aggData = TRUE})
+#' MSE bootstraps are unaffected by this argument.
 #' @param transformation Character. Either \code{"none"} (default) or \code{"log"}. If \code{"log"},
 #' the target variable \code{Y} is log-transformed before fitting the MERF for nonlinear indicators
 #' (\code{meanOnly = FALSE}), and back-transformed via \code{exp()} in the smearing and MSE bootstrap
@@ -265,6 +275,7 @@ SAEforest_model <- function(Y,
                             B_adj = 100,
                             adj_tol = 0.05,
                             adj_tol_mse = NULL,
+                            mse_tol = 0,
                             B_MC = 100,
                             transformation = c("none", "log"),
                             threshold = NULL,
@@ -284,7 +295,7 @@ SAEforest_model <- function(Y,
     Y = Y, X = X, dName = dName, smp_data = smp_data, pop_data = pop_data,
     MSE = MSE, meanOnly = meanOnly, aggData = aggData, smearing = smearing,
     popnsize = popnsize, importance = importance, OOsample_obs = OOsample_obs,
-    ADDsamp_obs = ADDsamp_obs, w_min = w_min, B = B, B_adj = B_adj, adj_tol = adj_tol, adj_tol_mse = adj_tol_mse, cores = cores, B_MC = B_MC,
+    ADDsamp_obs = ADDsamp_obs, w_min = w_min, B = B, B_adj = B_adj, adj_tol = adj_tol, adj_tol_mse = adj_tol_mse, mse_tol = mse_tol, cores = cores, B_MC = B_MC,
     threshold = threshold, custom_indicator = custom_indicator,
     initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,
     MaxIterations = MaxIterations, aggregate_to = aggregate_to, na.rm = na.rm
@@ -359,6 +370,7 @@ SAEforest_model <- function(Y,
       B_adj = B_adj,
       adj_tol = adj_tol,
       adj_tol_mse = adj_tol_mse,
+      mse_tol = mse_tol,
       B_MC = B_MC,
       transformation = transformation,
       threshold = threshold,

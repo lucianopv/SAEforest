@@ -21,6 +21,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  B_adj = 100,
                                  adj_tol = 0,
                                  adj_tol_mse = NULL,
+                                 mse_tol = 0,
                                  transformation = c("none", "log"),
                                  select.indicator = NULL,
                                  cores = 1,
@@ -152,17 +153,51 @@ MSE_SAEforest_nonLin <- function(Y,
     }
   }
 
-  tau_b <- with_parallel_rng(cores, function(cl) {
-    pbapply::pbsapply(boots_sample, my_estim_f, cl = cl, simplify = FALSE)
-  })
-
   mean_square <- function(x, y) {
     (x - y)^2
   }
 
-  Mean_square_B <- mapply(mean_square, tau_b, tau_star, SIMPLIFY = FALSE)
+  if (is.null(mse_tol)) mse_tol <- 0
 
-  MSE_estimates <- Reduce("+", Mean_square_B) / length(Mean_square_B)
+  if (mse_tol <= 0) {
+    ## ---- exact path: fixed B (byte-identical to previous behaviour) ----
+    tau_b <- with_parallel_rng(cores, function(cl) {
+      pbapply::pbsapply(boots_sample, my_estim_f, cl = cl, simplify = FALSE)
+    })
+    Mean_square_B <- mapply(mean_square, tau_b, tau_star, SIMPLIFY = FALSE)
+    MSE_estimates <- Reduce("+", Mean_square_B) / length(Mean_square_B)
+  } else {
+    ## ---- adaptive early-stop: batched refits, stop on median relative MC-SE ----
+    B_MIN   <- min(20L, B)
+    B_BATCH <- min(max(as.integer(cores), 10L), B)
+    res_mse <- with_parallel_rng(cores, function(cl) {
+      sq <- vector("list", B)
+      m <- 0L
+      repeat {
+        idx <- (m + 1L):min(m + B_BATCH, B)
+        batch <- pbapply::pbsapply(boots_sample[idx], my_estim_f, cl = cl, simplify = FALSE)
+        for (j in seq_along(idx)) sq[[idx[j]]] <- mean_square(batch[[j]], tau_star[[idx[j]]])
+        m <- max(idx)
+        if (m >= B_MIN && m >= 2L) {
+          # sq[[i]] may be a data.frame (multi-indicator) or a matrix
+          # (single-indicator, via select.indicator). simplify2array() on a
+          # list of data.frames uses ncol() as "length" and silently drops the
+          # domain dimension, so coerce to plain matrices first -- this always
+          # yields a domains x indicators x m array regardless of shape.
+          arr <- simplify2array(lapply(sq[seq_len(m)], as.matrix))
+          mse <- apply(arr, c(1, 2), mean)
+          sdv <- apply(arr, c(1, 2), stats::sd)
+          rel <- (sdv / sqrt(m)) / mse
+          rel <- rel[is.finite(rel) & mse > 0]
+          if (length(rel) > 0 && stats::median(rel) < mse_tol) break
+        }
+        if (m >= B) break
+      }
+      list(sq = sq[seq_len(m)], m = m)
+    })
+    Mean_square_B <- res_mse$sq
+    MSE_estimates <- Reduce("+", Mean_square_B) / length(Mean_square_B)
+  }
 
   mse_col_names <- colnames(MSE_estimates)
   if (is.null(mse_col_names)) mse_col_names <- select.indicator

@@ -24,6 +24,7 @@ SAEforest_model(
   B_adj = 100,
   adj_tol = 0.05,
   adj_tol_mse = NULL,
+  mse_tol = 0,
   B_MC = 100,
   transformation = c("none", "log"),
   threshold = NULL,
@@ -118,6 +119,17 @@ Because the inner Mendez-Lohr constant \code{K} enters each MSE replicate only v
 residual-variance rescaling and is itself averaged over \code{B} replicates, a looser
 \code{adj_tol_mse} trades a small amount of Monte-Carlo noise in \code{K} per replicate
 (which washes out on averaging) for substantially fewer inner forest fits.}
+
+\item{mse_tol}{Numeric \eqn{\ge 0}. Relative Monte-Carlo standard-error tolerance
+for the adaptive early-stopping of the outer MSE bootstrap (\code{MSE = "wild"} or
+\code{"nonparametric"}) for non-linear indicators (\code{meanOnly = FALSE}). The bootstrap
+refits are run in batches and stop once the median (across domains and indicators) relative
+Monte-Carlo standard error of the running MSE estimate drops below \code{mse_tol} (after at
+least \code{min(20, B)} replicates, capped at \code{B}). \code{mse_tol = 0} (the default) disables
+early-stopping and always runs the full \code{B} replicates -- this is the exact, unadjusted
+dispatch and is byte-identical to previous versions. Currently only affects the non-linear
+(\code{meanOnly = FALSE}) MSE bootstrap; the mean and aggregated-covariate (\code{aggData = TRUE})
+MSE bootstraps are unaffected by this argument.}
 
 \item{B_MC}{Number of bootstrap populations in the MC version for point estimates of (nonlinear) indicators.
 Defaults to 100.}
