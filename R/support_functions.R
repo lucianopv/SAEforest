@@ -7,21 +7,27 @@ calc_indicat <- function(Y, threshold, custom, select.indicator = NULL) {
 
   want <- function(name) is.null(select.indicator) || name %in% select.indicator
 
-  Ys <- sort(Y)  # sort() drops NA by default (na.last = NA), matching quantile(na.rm = TRUE)
-  n <- length(Ys)
-
-  q_at <- function(p) {
-    h <- (n - 1) * p + 1
-    lo <- floor(h); hi <- ceiling(h)
-    Ys[lo] + (h - lo) * (Ys[hi] - Ys[lo])
-  }
-
   mean_est <- mean(Y, na.rm = TRUE)
   Hcr_est <- mean(Y < threshold, na.rm = TRUE)
 
+  need_quant <- want("Quant10") || want("Quant25") || want("Median") || want("Quant75") || want("Quant90")
+  need_sort <- need_quant || want("Gini") || want("Qsr")
+
+  Ys <- NULL
+  q_at <- NULL
+  if (need_sort) {
+    Ys <- sort(Y)  # sort() drops NA by default (na.last = NA), matching quantile(na.rm = TRUE)
+    n <- length(Ys)
+    q_at <- function(p) {
+      h <- (n - 1) * p + 1
+      lo <- floor(h); hi <- ceiling(h)
+      Ys[lo] + (h - lo) * (Ys[hi] - Ys[lo])
+    }
+  }
+
   quant_preds <- c(Quant10 = NA_real_, Quant25 = NA_real_, Median = NA_real_,
                     Quant75 = NA_real_, Quant90 = NA_real_)
-  if (want("Quant10") || want("Quant25") || want("Median") || want("Quant75") || want("Quant90")) {
+  if (need_quant) {
     quant_preds <- c(Quant10 = q_at(0.1), Quant25 = q_at(0.25), Median = q_at(0.5),
                       Quant75 = q_at(0.75), Quant90 = q_at(0.9))
   }
