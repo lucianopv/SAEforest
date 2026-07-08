@@ -139,6 +139,7 @@ point_nonLin <- function(Y,
   exp_residuals <- if (transformation == "log") exp(residuals_to_use) else NULL
 
   compute_domain <- function(i) {
+    if (cores > 1L) pin_blas_threads()
     domain_preds <- unit_preds[pop_data[[dName]] == domains[i]]
     if (transformation == "log") {
       val_i <- c(outer(exp(domain_preds), exp_residuals, "*"))

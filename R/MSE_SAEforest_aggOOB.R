@@ -78,6 +78,7 @@ MSE_SAEforest_aggOOB <- function(Y,
   # use bootstrap samples to estimate
   dots <- force_serial_threads(cores, ...)
   my_estim_f <- function(x) {
+    if (cores > 1L) pin_blas_threads()
     do.call(point_meanAGG, c(list(
       Y = x, X = X, dName = dName, smp_data = smp_data, Xpop_agg = Xpop_agg,
       initialRandomEffects = initialRandomEffects, ErrorTolerance = ErrorTolerance,

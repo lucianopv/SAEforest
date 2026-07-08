@@ -125,6 +125,7 @@ MSE_SAEforest_nonLin <- function(Y,
   if (MC == TRUE) {
     dots <- force_serial_threads(cores, ...)
     my_estim_f <- function(x) {
+      if (cores > 1L) pin_blas_threads()
       do.call(point_MC_nonLin, c(list(
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold,
         smp_data = x, pop_data = pop_data, initialRandomEffects = initialRandomEffects,
@@ -138,6 +139,7 @@ MSE_SAEforest_nonLin <- function(Y,
   if (MC == FALSE) {
     dots <- force_serial_threads(cores, ...)
     my_estim_f <- function(x) {
+      if (cores > 1L) pin_blas_threads()
       do.call(point_nonLin, c(list(
         Y = x$y_star, X = x[, colnames(X)], dName = dName, threshold = threshold,
         smp_data = x, pop_data = pop_data, initialRandomEffects = initialRandomEffects,

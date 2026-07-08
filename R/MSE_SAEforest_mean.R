@@ -77,6 +77,7 @@ MSE_SAEforest_mean <- function(Y,
   # use bootstrap samples to estimate
   dots <- force_serial_threads(cores, ...)
   my_estim_f <- function(x) {
+    if (cores > 1L) pin_blas_threads()
     do.call(point_mean, c(list(
       Y = x$y_star, X = x[, colnames(X)], dName = dName, smp_data = x,
       pop_data = pop_data, initialRandomEffects = initialRandomEffects,
