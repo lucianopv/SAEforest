@@ -23,6 +23,7 @@ SAEforest_model(
   var.adjust = FALSE,
   B_adj = 100,
   adj_tol = 0.05,
+  adj_tol_mse = NULL,
   B_MC = 100,
   transformation = c("none", "log"),
   threshold = NULL,
@@ -106,6 +107,17 @@ once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least \code{min(20, B_adj)
 forests, capped at \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
 always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 \code{var.adjust = FALSE}.}
+
+\item{adj_tol_mse}{Numeric \eqn{\ge 0} or \code{NULL} (the default). A separate,
+typically looser, \code{adj_tol} used only for the inner bias-correction refits inside
+the MSE bootstrap (\code{MSE = "wild"} or \code{"nonparametric"} with \code{var.adjust = TRUE}),
+trading inner precision for MSE speed. If \code{NULL}, resolves to \code{adj_tol}, so the MSE
+refits use the same inner tolerance as the point estimate and behaviour is unchanged. The
+point estimate's own inner tolerance always uses \code{adj_tol}, unaffected by this argument.
+Because the inner Mendez-Lohr constant \code{K} enters each MSE replicate only via a single
+residual-variance rescaling and is itself averaged over \code{B} replicates, a looser
+\code{adj_tol_mse} trades a small amount of Monte-Carlo noise in \code{K} per replicate
+(which washes out on averaging) for substantially fewer inner forest fits.}
 
 \item{B_MC}{Number of bootstrap populations in the MC version for point estimates of (nonlinear) indicators.
 Defaults to 100.}

@@ -11,7 +11,7 @@ class_error <- function(object) {
 #' @importFrom parallel detectCores
 input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, aggData, smearing,
                                popnsize, importance, OOsample_obs, ADDsamp_obs, w_min, B, B_adj,
-                               adj_tol, cores, B_MC, threshold, custom_indicator, initialRandomEffects, ErrorTolerance,
+                               adj_tol, adj_tol_mse, cores, B_MC, threshold, custom_indicator, initialRandomEffects, ErrorTolerance,
                                MaxIterations, aggregate_to, na.rm) {
   if (!is.numeric(Y) || !data.frame(Y) %in% smp_data) {
     stop("Y must be a continuous vector containing the target variable. Additionally Y must be included in the data frame of survey sample data. See also help(SAEforest_model)")
@@ -106,6 +106,10 @@ input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, a
 
   if (!is.null(adj_tol) && !(is.numeric(adj_tol) && length(adj_tol) == 1 && adj_tol >= 0)) {
     stop("adj_tol must be a single non-negative numeric value (0 disables adaptive early-stop of the residual-variance bias correction). See help(SAEforest_model).")
+  }
+
+  if (!is.null(adj_tol_mse) && !(is.numeric(adj_tol_mse) && length(adj_tol_mse) == 1 && !is.na(adj_tol_mse) && adj_tol_mse >= 0)) {
+    stop("adj_tol_mse must be NULL or a single numeric value >= 0.")
   }
 
   if (!(is.numeric(cores) && length(cores) == 1 && is.finite(cores) &&

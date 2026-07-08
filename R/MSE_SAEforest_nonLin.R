@@ -20,12 +20,14 @@ MSE_SAEforest_nonLin <- function(Y,
                                  var.adjust = FALSE,
                                  B_adj = 100,
                                  adj_tol = 0,
+                                 adj_tol_mse = NULL,
                                  transformation = c("none", "log"),
                                  select.indicator = NULL,
                                  cores = 1,
                                  ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
+  if (is.null(adj_tol_mse)) adj_tol_mse <- adj_tol
 
   rand_struc <- paste0(paste0("(1|", dName), ")")
   domains <- t(unique(pop_data[dName]))
@@ -131,7 +133,7 @@ MSE_SAEforest_nonLin <- function(Y,
         smp_data = x, pop_data = pop_data, initialRandomEffects = initialRandomEffects,
         ErrorTolerance = ErrorTolerance, B_point = B_point, MaxIterations = MaxIterations,
         custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol,
+        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol_mse,
         select.indicator = select.indicator), dots))[[1]][, -1]
     }
   }
@@ -145,7 +147,7 @@ MSE_SAEforest_nonLin <- function(Y,
         smp_data = x, pop_data = pop_data, initialRandomEffects = initialRandomEffects,
         ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
         custom_indicator = custom_indicator, aggregate_to = aggregate_to,
-        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol,
+        var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol_mse,
         transformation = transformation, select.indicator = select.indicator), dots))[[1]][, -1]
     }
   }
