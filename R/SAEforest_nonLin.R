@@ -70,6 +70,7 @@ SAEforest_nonLin <- function(Y,
       adj_tol = adj_tol,
       transformation = transformation,
       select.indicator = select.indicator,
+      cores = cores,
       ...
     )
 

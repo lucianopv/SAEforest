@@ -78,6 +78,7 @@ point_nonLin <- function(Y,
                          adj_tol = 0,
                          transformation = c("none", "log"),
                          select.indicator = NULL,
+                         cores = 1,
                          ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -117,8 +118,6 @@ point_nonLin <- function(Y,
 
 
   #  smearing step
-  smear_list <- vector(mode = "list", length = length(domains))
-
   if(is.null(aggregate_to)){
     dName = dName
   } else{
@@ -127,13 +126,9 @@ point_nonLin <- function(Y,
 
   exp_residuals <- if (transformation == "log") exp(unit_model$OOBresiduals) else NULL
 
-  for (i in seq_along(domains)) {
+  compute_domain <- function(i) {
     domain_preds <- unit_preds[pop_data[[dName]] == domains[i]]
     if (transformation == "log") {
-      # exp(a + b) == exp(a) * exp(b): exp_residuals is precomputed once above
-      # (shared across every domain), so only exp(domain_preds) -- a vector the
-      # size of this one domain's population, not the full residual count -- is
-      # computed per iteration.
       val_i <- c(outer(exp(domain_preds), exp_residuals, "*"))
       val_i[!is.finite(val_i)] <- NA
     } else {
@@ -142,9 +137,21 @@ point_nonLin <- function(Y,
       smear_i <- smear_i + domain_preds
       val_i <- c(smear_i)
     }
-    smear_list[[i]] <- calc_indicat(val_i, threshold = thresh, custom = custom_indicator,
-                                     select.indicator = select.indicator)
+    calc_indicat(val_i, threshold = thresh, custom = custom_indicator,
+                 select.indicator = select.indicator)
   }
+
+  # Point estimates involve no randomness (unlike the MSE bootstrap), so no RNG
+  # scoping is needed here -- unlike with_parallel_rng, cores just picks pbapply's
+  # backend. pbapply::pblapply(cl = <integer>) dispatches to parallel::mclapply
+  # (fork) on non-Windows, matching the existing MSE-bootstrap cores mechanism's
+  # "ignored on Windows" behavior, and to cl = NULL (serial, byte-identical to the
+  # original for loop) when cores == 1. Each domain does no ranger/lme4 call of its
+  # own (the Forest/EffectModel predict() calls already happened once, above, for
+  # the whole population), so there is no thread-oversubscription risk to guard
+  # against here -- force_serial_threads is not needed for this loop.
+  cl <- if (cores > 1L) cores else NULL
+  smear_list <- pbapply::pblapply(seq_along(domains), compute_domain, cl = cl)
 
   indicators <- as.data.frame(do.call(rbind, smear_list))
   indicators_out <- cbind(domains, indicators)

@@ -95,12 +95,14 @@
 #' start of the function, enabling reproducibility of the entire pipeline (point estimates
 #' and, if requested, the MSE bootstrap). If \code{NULL} (the default), no seed is set.
 #' @param cores Integer \eqn{\ge 1}. Number of fork worker processes for the MSE
-#' bootstrap (Linux/macOS). \code{cores = 1} (the default) runs serially and is
-#' byte-identical to previous versions. \code{cores > 1} parallelizes the MSE
-#' bootstrap and forces \code{ranger}'s \code{num.threads = 1} inside each worker to
-#' avoid oversubscription; results are reproducible for a fixed \code{(seed, cores)}
-#' but may differ from the serial MSE (Monte-Carlo noise of the bootstrap). Point
-#' estimates are unaffected by \code{cores}. Ignored on Windows (falls back to serial).
+#' bootstrap and for the non-linear point-estimate smearing loop (Linux/macOS).
+#' \code{cores = 1} (the default) runs both serially and is byte-identical to
+#' previous versions. \code{cores > 1} parallelizes the MSE bootstrap (results
+#' reproducible for a fixed \code{(seed, cores)} but may differ from the serial
+#' MSE due to Monte-Carlo noise of the bootstrap) and the point-estimate smearing
+#' loop (point estimates are deterministic regardless of \code{cores} -- a
+#' parallel run reproduces the serial result exactly, not just approximately).
+#' Ignored on Windows (falls back to serial).
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
