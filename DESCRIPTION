@@ -30,6 +30,7 @@ Imports:
     pdp,
     ranger,
     reshape2,
+    RhpcBLASctl,
     rlang,
     sf,
     stats,

@@ -416,6 +416,23 @@ with_parallel_rng <- function(cores, expr) {
   expr(cores)
 }
 
+# Force single-threaded BLAS/OpenMP for the CALLING process. Invoked at the top of
+# each forked parallel worker so its matrix ops (R %*%) run serially. A forked child
+# inherits the parent's OpenMP (libgomp) thread-team state, and a multi-threaded
+# OpenBLAS dgemm in the child deadlocks on an OpenMP barrier (confirmed via gdb — see
+# docs/superpowers/notes/fork-deadlock-investigation.md). Single-threaded BLAS per
+# worker is also correct to avoid cores x BLAS-threads oversubscription. Note:
+# blas_set_num_threads is a no-op for the OpenMP OpenBLAS build (which is governed by
+# omp_set_num_threads); both are set so pthreads and OpenMP builds are covered.
+# Safe no-op if RhpcBLASctl is unavailable.
+pin_blas_threads <- function() {
+  if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
+    try(RhpcBLASctl::omp_set_num_threads(1L), silent = TRUE)
+    try(RhpcBLASctl::blas_set_num_threads(1L), silent = TRUE)
+  }
+  invisible(NULL)
+}
+
 # Extra estimator arguments (the MSE driver's `...`) with ranger's num.threads forced
 # to 1 when running in parallel, so each fork worker uses one thread (no
 # oversubscription). cores == 1 returns the args unchanged. Warns once if the caller
