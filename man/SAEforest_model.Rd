@@ -35,6 +35,7 @@ SAEforest_model(
   select.indicator = NULL,
   seed = NULL,
   cores = 1,
+  n_smear_residuals = NULL,
   ...
 )
 }
@@ -154,6 +155,17 @@ MSE due to Monte-Carlo noise of the bootstrap) and the point-estimate smearing
 loop (point estimates are deterministic regardless of \code{cores} -- a
 parallel run reproduces the serial result exactly, not just approximately).
 Ignored on Windows (falls back to serial).}
+
+\item{n_smear_residuals}{Integer or \code{NULL} (the default). If \code{NULL},
+the smearing point-estimate step uses every sample-level OOB residual, exactly
+as before. If an integer smaller than the number of available residuals, that
+many residuals are subsampled once (not re-sampled per domain) and reused for
+every domain's smearing calculation. This trades a small, quantifiable amount
+of Monte-Carlo noise in the smearing approximation itself for speed --
+Duan (1983) smearing does not require using every available residual for a
+stable empirical distribution, but this is an approximation, unlike every
+other performance option on this function, and must be chosen deliberately.
+Ignored (uses all residuals) if greater than or equal to the number available.}
 
 \item{...}{Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 Most important parameters are for instance \code{mtry} (number of variables to possibly split at

@@ -103,6 +103,16 @@
 #' loop (point estimates are deterministic regardless of \code{cores} -- a
 #' parallel run reproduces the serial result exactly, not just approximately).
 #' Ignored on Windows (falls back to serial).
+#' @param n_smear_residuals Integer or \code{NULL} (the default). If \code{NULL},
+#' the smearing point-estimate step uses every sample-level OOB residual, exactly
+#' as before. If an integer smaller than the number of available residuals, that
+#' many residuals are subsampled once (not re-sampled per domain) and reused for
+#' every domain's smearing calculation. This trades a small, quantifiable amount
+#' of Monte-Carlo noise in the smearing approximation itself for speed --
+#' Duan (1983) smearing does not require using every available residual for a
+#' stable empirical distribution, but this is an approximation, unlike every
+#' other performance option on this function, and must be chosen deliberately.
+#' Ignored (uses all residuals) if greater than or equal to the number available.
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
@@ -251,6 +261,7 @@ SAEforest_model <- function(Y,
                             select.indicator = NULL,
                             seed = NULL,
                             cores = 1,
+                            n_smear_residuals = NULL,
                             ...) {
 
   input_checks_model(
@@ -340,6 +351,7 @@ SAEforest_model <- function(Y,
       select.indicator = select.indicator,
       out_call = out_call,
       cores = cores,
+      n_smear_residuals = n_smear_residuals,
       ...
     )
 

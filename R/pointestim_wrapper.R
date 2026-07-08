@@ -79,6 +79,7 @@ point_nonLin <- function(Y,
                          transformation = c("none", "log"),
                          select.indicator = NULL,
                          cores = 1,
+                         n_smear_residuals = NULL,
                          ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -124,7 +125,18 @@ point_nonLin <- function(Y,
     dName = aggregate_to
   }
 
-  exp_residuals <- if (transformation == "log") exp(unit_model$OOBresiduals) else NULL
+  residuals_to_use <- unit_model$OOBresiduals
+  if (!is.null(n_smear_residuals)) {
+    if (!is.numeric(n_smear_residuals) || length(n_smear_residuals) != 1L ||
+        is.na(n_smear_residuals) || n_smear_residuals < 1) {
+      stop("n_smear_residuals must be a single positive number or NULL.", call. = FALSE)
+    }
+    if (n_smear_residuals < length(residuals_to_use)) {
+      residuals_to_use <- sample(residuals_to_use, size = n_smear_residuals)
+    }
+  }
+
+  exp_residuals <- if (transformation == "log") exp(residuals_to_use) else NULL
 
   compute_domain <- function(i) {
     domain_preds <- unit_preds[pop_data[[dName]] == domains[i]]
@@ -132,8 +144,8 @@ point_nonLin <- function(Y,
       val_i <- c(outer(exp(domain_preds), exp_residuals, "*"))
       val_i[!is.finite(val_i)] <- NA
     } else {
-      smear_i <- matrix(rep(unit_model$OOBresiduals, popSize[i]), nrow = popSize[i],
-                         ncol = length(unit_model$OOBresiduals), byrow = TRUE)
+      smear_i <- matrix(rep(residuals_to_use, popSize[i]), nrow = popSize[i],
+                         ncol = length(residuals_to_use), byrow = TRUE)
       smear_i <- smear_i + domain_preds
       val_i <- c(smear_i)
     }

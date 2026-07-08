@@ -24,6 +24,7 @@ SAEforest_nonLin <- function(Y,
                              select.indicator = NULL,
                              out_call,
                              cores = 1,
+                             n_smear_residuals = NULL,
                              ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -71,6 +72,7 @@ SAEforest_nonLin <- function(Y,
       transformation = transformation,
       select.indicator = select.indicator,
       cores = cores,
+      n_smear_residuals = n_smear_residuals,
       ...
     )
 
