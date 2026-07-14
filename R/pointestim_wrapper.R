@@ -138,9 +138,11 @@ point_nonLin <- function(Y,
 
   exp_residuals <- if (transformation == "log") exp(residuals_to_use) else NULL
 
+  group_idx <- split(seq_along(unit_preds), pop_data[[dName]])
+
   compute_domain <- function(i) {
     if (cores > 1L) pin_blas_threads()
-    domain_preds <- unit_preds[pop_data[[dName]] == domains[i]]
+    domain_preds <- unit_preds[group_idx[[domains[i]]]]
     if (transformation == "log") {
       val_i <- c(outer(exp(domain_preds), exp_residuals, "*"))
       val_i[!is.finite(val_i)] <- NA

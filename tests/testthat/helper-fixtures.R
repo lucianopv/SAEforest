@@ -29,6 +29,14 @@ tiny_saef_data <- function(n_dom = 4, per_dom = 8, seed = 2026) {
   )
 }
 
+# Same as tiny_saef_data(), plus a "subunit" population column nested within
+# district (2 subunits per district) -- for testing aggregate_to finer than dName.
+tiny_saef_data_with_subunit <- function(n_dom = 4, per_dom = 8, seed = 2026) {
+  base <- tiny_saef_data(n_dom = n_dom, per_dom = per_dom, seed = seed)
+  base$pop$subunit <- paste0(base$pop$district, "_", rep(1:2, length.out = nrow(base$pop)))
+  base
+}
+
 # Tiny deterministic aggData=TRUE fixture (aggregated-covariate / ELM-calibration path),
 # using SAEforest's own bundled data (no emdi dependency). Restricted to in-sample-only
 # domains so the out-of-sample augmentation branch of point_meanAGG() is never exercised.

@@ -156,9 +156,12 @@ Defaults to 0.}
 MERF algorithm. Defaults to 25.}
 
 \item{aggregate_to}{Character containing the name of a variable from
-population data that indicates the target domain level for which the
-results are to be displayed. Only available if \code{aggData = FALSE}.
-Defaults to \code{NULL}.}
+population data used to group unit-level predictions for output. May be
+coarser than \code{dName} (the original use case) or finer (e.g. a
+district random effect with output at an individual sub-unit nested
+within each district) -- every \code{aggregate_to} value must nest
+within exactly one \code{dName} value; this is validated. Only
+available if \code{aggData = FALSE}. Defaults to \code{NULL}.}
 
 \item{na.rm}{Logical. Whether missing values should be removed. Defaults to \code{TRUE}.}
 

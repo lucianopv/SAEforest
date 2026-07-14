@@ -108,9 +108,12 @@
 #' Only needed if \code{aggData = TRUE}. Defaults to 3.
 #' @param meanOnly Logical. Calculating domain-level means only. Defaults to \code{TRUE}.
 #' @param aggregate_to Character containing the name of a variable from
-#' population data that indicates the target domain level for which the
-#' results are to be displayed. Only available if \code{aggData = FALSE}.
-#' Defaults to \code{NULL}.
+#' population data used to group unit-level predictions for output. May be
+#' coarser than \code{dName} (the original use case) or finer (e.g. a
+#' district random effect with output at an individual sub-unit nested
+#' within each district) -- every \code{aggregate_to} value must nest
+#' within exactly one \code{dName} value; this is validated. Only
+#' available if \code{aggData = FALSE}. Defaults to \code{NULL}.
 #' @param seed Integer value used to seed R's random number generator once at the very
 #' start of the function, enabling reproducibility of the entire pipeline (point estimates
 #' and, if requested, the MSE bootstrap). If \code{NULL} (the default), no seed is set.

@@ -176,17 +176,20 @@ input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, a
   }
 
   if(is.null(aggregate_to) != TRUE){
+    if (!is.character(aggregate_to) || length(aggregate_to) != 1) {
+      stop(paste0(aggregate_to, " must be a single character string."))
+    }
     if (!(aggregate_to %in% colnames(pop_data))) {
       stop(paste0("The domain variable ", aggregate_to, " is not contained in
                   pop_data. Please provide valid variable name for the
                   aggregation."))
     }
-  }
-
-  if(is.null(aggregate_to) != TRUE){
-    if (!(is.character(aggregate_to) ||
-          length(aggregate_to) != 1)) {
-      stop(paste0(aggregate_to, "must be an input of class character."))
+    nest_check <- tapply(pop_data[[dName]], pop_data[[aggregate_to]],
+                          function(x) length(unique(x)))
+    if (any(nest_check > 1)) {
+      stop("aggregate_to does not nest within dName: ",
+           sum(nest_check > 1), " aggregate_to value(s) span more than one ",
+           "dName value.", call. = FALSE)
     }
   }
 
