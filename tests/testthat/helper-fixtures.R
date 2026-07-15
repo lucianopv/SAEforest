@@ -29,11 +29,14 @@ tiny_saef_data <- function(n_dom = 4, per_dom = 8, seed = 2026) {
   )
 }
 
-# Same as tiny_saef_data(), plus a "subunit" population column nested within
-# district (2 subunits per district) -- for testing aggregate_to finer than dName.
+# Same as tiny_saef_data(), plus a "subunit" column (2 subunits per district)
+# nested within district, added to BOTH pop and smp -- for testing aggregate_to
+# in either direction: finer than dName (dName="district", aggregate_to="subunit")
+# or coarser than dName (dName="subunit", aggregate_to="district").
 tiny_saef_data_with_subunit <- function(n_dom = 4, per_dom = 8, seed = 2026) {
   base <- tiny_saef_data(n_dom = n_dom, per_dom = per_dom, seed = seed)
   base$pop$subunit <- paste0(base$pop$district, "_", rep(1:2, length.out = nrow(base$pop)))
+  base$smp$subunit <- paste0(base$smp$district, "_", rep(1:2, length.out = nrow(base$smp)))
   base
 }
 

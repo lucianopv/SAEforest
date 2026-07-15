@@ -13,6 +13,24 @@ test_that("aggregate_to rejects a column that does not nest within dName", {
   )
 })
 
+test_that("aggregate_to accepts the original coarsening direction (dName finer than aggregate_to)", {
+  # This is the pre-existing use case aggregate_to was originally built for
+  # (report at a coarser level than the model domain) -- dName = "subunit"
+  # (finer), aggregate_to = "district" (coarser). Must not be rejected by the
+  # nesting check, which historically only validated the opposite (finer)
+  # direction added for GridSAE's cell-level output decoupling.
+  d <- tiny_saef_data_with_subunit()
+
+  expect_no_error(
+    SAEforest_model(
+      Y = d$Y, X = d$X, dName = "subunit",
+      smp_data = d$smp, pop_data = d$pop,
+      meanOnly = FALSE, MSE = "none", num.trees = 50, mtry = 2,
+      aggregate_to = "district"
+    )
+  )
+})
+
 test_that("aggregate_to does not change fitted model parameters (fixef, VarCorr, RanEffSD)", {
   d <- tiny_saef_data_with_subunit()
 

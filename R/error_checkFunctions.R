@@ -184,12 +184,20 @@ input_checks_model <- function(Y, X, dName, smp_data, pop_data, MSE, meanOnly, a
                   pop_data. Please provide valid variable name for the
                   aggregation."))
     }
-    nest_check <- tapply(pop_data[[dName]], pop_data[[aggregate_to]],
-                          function(x) length(unique(x)))
-    if (any(nest_check > 1)) {
-      stop("aggregate_to does not nest within dName: ",
-           sum(nest_check > 1), " aggregate_to value(s) span more than one ",
-           "dName value.", call. = FALSE)
+    # aggregate_to may be either finer than dName (nest_fine: every
+    # aggregate_to value maps to exactly one dName value -- e.g. cell-level
+    # output with the random effect at an admin domain) or coarser than dName
+    # (nest_coarse: every dName value maps to exactly one aggregate_to value --
+    # the original use case, e.g. reporting at district when the model domain
+    # is a finer subunit). Only reject when neither direction nests cleanly.
+    nest_fine <- tapply(pop_data[[dName]], pop_data[[aggregate_to]],
+                         function(x) length(unique(x)))
+    nest_coarse <- tapply(pop_data[[aggregate_to]], pop_data[[dName]],
+                           function(x) length(unique(x)))
+    if (any(nest_fine > 1) && any(nest_coarse > 1)) {
+      stop("aggregate_to does not nest within dName (nor vice versa): ",
+           "aggregate_to and dName must form a strict hierarchy in one ",
+           "direction or the other.", call. = FALSE)
     }
   }
 
