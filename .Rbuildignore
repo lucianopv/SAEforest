@@ -16,3 +16,4 @@ News.md
 ^docs/superpowers$
 ^CLAUDE\.md$
 ^PROJECT_NOTES\.md$
+^\.worktrees$
