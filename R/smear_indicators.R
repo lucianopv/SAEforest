@@ -34,7 +34,8 @@ smear_indicators <- function(preds, res, thresh, custom = NULL,
   use_fast <- is.null(custom) &&
     !is.null(select.indicator) &&
     all(select.indicator %in% smear_fast_indicators) &&
-    (!wants_quant || length(preds) * length(res) >= smear_select_min_cells)
+    (!wants_quant ||
+       as.numeric(length(preds)) * length(res) >= smear_select_min_cells)
 
   if (!use_fast) {
     # Fallback: verbatim the original construction, so the flattened element
@@ -46,9 +47,11 @@ smear_indicators <- function(preds, res, thresh, custom = NULL,
                         select.indicator = select.indicator))
   }
 
-  N <- length(preds)
+  # as.numeric: a large domain's N * n exceeds .Machine$integer.max, and
+  # integer overflow there yields NA rather than an error.
+  N <- as.numeric(length(preds))
   rs <- sort(res)
-  n <- length(rs)
+  n <- as.numeric(length(rs))
 
   # Hcr = mean(Y < thresh). For each k, count residuals strictly below
   # (thresh - preds[k]); findInterval(left.open = TRUE) returns #{rs < x}.
@@ -106,7 +109,7 @@ smear_indicators <- function(preds, res, thresh, custom = NULL,
 # the largest cell not exceeding the upper bound -- that cell IS the r-th
 # smallest once the bracket has narrowed to adjacent doubles.
 minkowski_order_stat <- function(A, B, r) {
-  nA <- length(A); nB <- length(B)
+  nA <- as.numeric(length(A)); nB <- as.numeric(length(B))   # nA * nB may exceed int max
 
   # #{cells <= v}. as.numeric() guards the integer sum: findInterval() returns
   # integers and nA * nB can exceed .Machine$integer.max for a large domain.
@@ -160,9 +163,10 @@ smear_indicators_log <- function(preds, res, thresh, custom = NULL,
                         select.indicator = select.indicator))
   }
 
-  N <- length(a)
+  # as.numeric: see the additive path -- N * n can exceed .Machine$integer.max.
+  N <- as.numeric(length(a))
   bs <- sort(b)
-  n <- length(bs)
+  n <- as.numeric(length(bs))
   cs <- c(0, cumsum(bs))                       # prefix sums of sorted exp(res)
 
   # z < thresh  <=>  b[j] < thresh / a[k]   (a[k] > 0, so this preserves order).
