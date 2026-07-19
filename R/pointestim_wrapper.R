@@ -144,16 +144,18 @@ point_nonLin <- function(Y,
     if (cores > 1L) pin_blas_threads()
     domain_preds <- unit_preds[group_idx[[domains[i]]]]
     if (transformation == "log") {
+      # Multiplicative smearing -- no closed form implemented for this path yet.
       val_i <- c(outer(exp(domain_preds), exp_residuals, "*"))
       val_i[!is.finite(val_i)] <- NA
-    } else {
-      smear_i <- matrix(rep(residuals_to_use, popSize[i]), nrow = popSize[i],
-                         ncol = length(residuals_to_use), byrow = TRUE)
-      smear_i <- smear_i + domain_preds
-      val_i <- c(smear_i)
+      return(calc_indicat(val_i, threshold = thresh, custom = custom_indicator,
+                          select.indicator = select.indicator))
     }
-    calc_indicat(val_i, threshold = thresh, custom = custom_indicator,
-                 select.indicator = select.indicator)
+    # Additive smearing. smear_indicators() uses closed forms when only
+    # Mean/Hcr/Pgap are requested and otherwise materialises the N_i x n set
+    # exactly as before; see R/smear_indicators.R.
+    smear_indicators(domain_preds, residuals_to_use, thresh = thresh,
+                     custom = custom_indicator,
+                     select.indicator = select.indicator)
   }
 
   # Point estimates involve no randomness (unlike the MSE bootstrap), so no RNG
