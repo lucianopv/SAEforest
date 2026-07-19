@@ -22,7 +22,13 @@ smear_fast_indicators <- c("Mean", "Hcr", "Pgap", names(smear_quantile_probs))
 smear_select_min_cells <- 1e5
 
 smear_indicators <- function(preds, res, thresh, custom = NULL,
-                             select.indicator = NULL) {
+                             select.indicator = NULL,
+                             transformation = c("none", "log")) {
+
+  transformation <- match.arg(transformation)
+  if (transformation == "log") {
+    return(smear_indicators_log(preds, res, thresh, custom, select.indicator))
+  }
 
   wants_quant <- any(select.indicator %in% names(smear_quantile_probs))
   use_fast <- is.null(custom) &&
@@ -124,4 +130,52 @@ minkowski_order_stat <- function(A, B, r) {
     if (count_le(mid) >= r) hi <- mid else lo <- mid
   }
   snap(hi)
+}
+
+# Log-path (multiplicative) smearing -------------------------------------------
+#
+# Cells are z[k, j] = exp(preds[k]) * exp(res[j]) = a[k] * b[j], with a, b > 0.
+# point_nonLin() maps non-finite cells to NA before reducing, so calc_indicat()'s
+# na.rm denominators count only the FINITE cells. The closed forms below assume
+# every cell is finite; the guard below proves that cheaply (a, b > 0 and finite
+# means max(a) * max(b) bounds every product) and otherwise falls back.
+#
+# Note z >= 0 always, so calc_indicat()'s negative-to-NA rule for Pgap is inert
+# here -- unlike on the additive path.
+smear_indicators_log <- function(preds, res, thresh, custom = NULL,
+                                 select.indicator = NULL) {
+  a <- exp(preds)
+  b <- exp(res)
+
+  fast_ok <- is.null(custom) &&
+    !is.null(select.indicator) &&
+    all(select.indicator %in% c("Mean", "Hcr", "Pgap")) &&
+    all(is.finite(a)) && all(is.finite(b)) && all(a > 0) &&
+    is.finite(max(a) * max(b))
+
+  if (!fast_ok) {
+    val <- c(outer(a, b, "*"))
+    val[!is.finite(val)] <- NA
+    return(calc_indicat(val, threshold = thresh, custom = custom,
+                        select.indicator = select.indicator))
+  }
+
+  N <- length(a)
+  bs <- sort(b)
+  n <- length(bs)
+  cs <- c(0, cumsum(bs))                       # prefix sums of sorted exp(res)
+
+  # z < thresh  <=>  b[j] < thresh / a[k]   (a[k] > 0, so this preserves order).
+  # As on the additive path this is a rearrangement, not a bit-identical test:
+  # b[j] < thresh/a[k] and a[k]*b[j] < thresh can disagree by one ULP for a cell
+  # within rounding distance of the threshold.
+  n_below <- findInterval(thresh / a, bs, left.open = TRUE)
+  sum_below <- cs[n_below + 1L]
+
+  indicators <- cbind(
+    Mean = mean(a) * mean(b),
+    Hcr = sum(as.numeric(n_below)) / (N * n),
+    Pgap = sum(n_below * thresh - a * sum_below) / thresh / (N * n)
+  )
+  indicators[, select.indicator]
 }
