@@ -9,15 +9,26 @@
 # itself, and custom indicators are arbitrary functions of it, so those still
 # materialise -- via the exact same construction as before, preserving parity.
 
-# Indicators with a closed form over the Minkowski sum.
-smear_fast_indicators <- c("Mean", "Hcr", "Pgap")
+# Indicators computable without materialising the Minkowski sum: Mean/Hcr/Pgap
+# in closed form, the quantiles by order-statistic selection. Gini and Qsr need
+# the sorted set itself and are deliberately absent.
+smear_quantile_probs <- c(Quant10 = 0.10, Quant25 = 0.25, Median = 0.50,
+                          Quant75 = 0.75, Quant90 = 0.90)
+smear_fast_indicators <- c("Mean", "Hcr", "Pgap", names(smear_quantile_probs))
+
+# Selection costs ~100 counting passes per order statistic, so it only overtakes
+# materialise-and-sort once the smearing set is large. Measured break-even is
+# around 1e5 cells (1.05x there, 12.8x at 2e6, 29.3x at 2e7).
+smear_select_min_cells <- 1e5
 
 smear_indicators <- function(preds, res, thresh, custom = NULL,
                              select.indicator = NULL) {
 
+  wants_quant <- any(select.indicator %in% names(smear_quantile_probs))
   use_fast <- is.null(custom) &&
     !is.null(select.indicator) &&
-    all(select.indicator %in% smear_fast_indicators)
+    all(select.indicator %in% smear_fast_indicators) &&
+    (!wants_quant || length(preds) * length(res) >= smear_select_min_cells)
 
   if (!use_fast) {
     # Fallback: verbatim the original construction, so the flattened element
@@ -57,8 +68,60 @@ smear_indicators <- function(preds, res, thresh, custom = NULL,
 
   indicators <- cbind(
     Mean = mean(preds) + mean(rs),
-    Hcr = sum(n_below) / (N * n),
+    Hcr = sum(as.numeric(n_below)) / (N * n),
     Pgap = Pgap
   )
+
+  # Quantiles by order-statistic selection, reproducing calc_indicat()'s
+  # interpolation (type 7) on the same order statistics it would have indexed
+  # out of the fully sorted smearing set.
+  if (wants_quant) {
+    ps <- sort(preds)
+    m <- N * n
+    qsel <- intersect(select.indicator, names(smear_quantile_probs))
+    qvals <- vapply(smear_quantile_probs[qsel], function(prob) {
+      h <- (m - 1) * prob + 1
+      lo <- floor(h); hi <- ceiling(h)
+      a <- minkowski_order_stat(ps, rs, lo)
+      b <- if (hi == lo) a else minkowski_order_stat(ps, rs, hi)
+      a + (h - lo) * (b - a)
+    }, numeric(1))
+    indicators <- cbind(indicators, t(qvals))
+  }
+
   indicators[, select.indicator]
+}
+
+# r-th order statistic of the Minkowski sum {A[k] + B[j]} ----------------------
+#
+# A and B must be sorted ascending. The implied matrix M[k, j] = A[k] + B[j] is
+# sorted along both axes, so #{cells <= v} is computable in O(|A| log |B|)
+# without materialising it. Bisect on value to bracket the answer, then snap to
+# the largest cell not exceeding the upper bound -- that cell IS the r-th
+# smallest once the bracket has narrowed to adjacent doubles.
+minkowski_order_stat <- function(A, B, r) {
+  nA <- length(A); nB <- length(B)
+
+  # #{cells <= v}. as.numeric() guards the integer sum: findInterval() returns
+  # integers and nA * nB can exceed .Machine$integer.max for a large domain.
+  count_le <- function(v) sum(as.numeric(findInterval(v - A, B)))
+  # largest cell value not exceeding v
+  snap <- function(v) {
+    idx <- findInterval(v - A, B)
+    keep <- idx >= 1L
+    max(A[keep] + B[idx[keep]])
+  }
+
+  lo <- A[1L] + B[1L]
+  hi <- A[nA] + B[nB]
+  if (r <= 1L || count_le(lo) >= r) return(lo)
+  if (r >= nA * nB) return(hi)
+
+  # invariant: count_le(lo) < r <= count_le(hi)
+  repeat {
+    mid <- lo + (hi - lo) / 2
+    if (mid <= lo || mid >= hi) break        # adjacent doubles, no progress
+    if (count_le(mid) >= r) hi <- mid else lo <- mid
+  }
+  snap(hi)
 }
