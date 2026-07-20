@@ -139,13 +139,41 @@ sample_select <- function(pop, smp, dName) {
 }
 
 
+# Rescales x to have standard deviation `target`, then centres it.
+#
+# Guards both degenerate inputs: a non-finite or zero sd(x) (which would divide
+# by zero, and is also what sd() returns for a length-1 vector), and a target of
+# zero (which correctly collapses everything to zero). Shared by ran_comp and
+# ran_comp_wild -- it lived inside ran_comp until ran_comp_wild was found to
+# need exactly the same protection.
+scale_to <- function(x, target) {
+  s <- sd(x)
+  if (!is.finite(s) || s == 0) return(x - mean(x))
+  (x / s) * target - mean((x / s) * target)
+}
+
+
+# Warns when the fitted random-effect SD is zero, which silently strips the
+# between-area component from the bootstrap population.
+warn_zero_raneff <- function(ran_eff_sd) {
+  if (isTRUE(is.finite(ran_eff_sd)) && ran_eff_sd == 0) {
+    warning(
+      "The fitted random-effect SD (RanEffSD) is zero, so the MSE bootstrap ",
+      "generates no between-area variation. Reported MSEs then reflect only ",
+      "within-area variability. This is especially severe for out-of-sample ",
+      "domains, whose MSE can be understated by an order of magnitude, and ",
+      "the bootstrap cannot distinguish them from in-sample domains. Consider ",
+      "whether the covariates have absorbed the area effects.",
+      call. = FALSE
+    )
+  }
+  invisible(NULL)
+}
+
+
 # Computes REB random components in the MSE procedures ------------------------------------
 ran_comp <- function(mod, smp_data, Y, dName, ADJsd) {
-  scale_to <- function(x, target) {
-    s <- sd(x)
-    if (!is.finite(s) || s == 0) return(x - mean(x))
-    (x / s) * target - mean((x / s) * target)
-  }
+  warn_zero_raneff(mod$RanEffSD)
 
   forest_res1 <- Y - predict(mod$Forest, smp_data)$predictions
   smp_data$forest_res <- forest_res1
@@ -176,13 +204,20 @@ ran_comp <- function(mod, smp_data, Y, dName, ADJsd) {
 
 # Computes wild random components in the MSE procedures -----------------------------------
 ran_comp_wild <- function(mod, smp_data, Y, dName, ADJsd) {
+  warn_zero_raneff(mod$RanEffSD)
+
   forest_res <- Y - mod$Forest$predictions - predict(mod$EffectModel, smp_data)
   forest_res <- forest_res - mean(forest_res)
 
-  # Random Effects
+  # Random Effects. scale_to() is algebraically identical to the original
+  # (ran_effs / sd(ran_effs)) * RanEffSD, then centred -- but it also survives
+  # the degenerate case. When RanEffSD is zero the EffectModel predicts one
+  # constant for every unit, unique() collapses that to length 1, and sd() of a
+  # length-1 vector is NA; the NA used to propagate into wild_errors(), where
+  # which.min(abs(NA - .)) returns integer(0) and aborts the vapply() with an
+  # error naming a function several steps from the actual cause.
   ran_effs <- unique(predict(mod$EffectModel, smp_data))
-  ran_effs <- (ran_effs / sd(ran_effs)) * mod$RanEffSD
-  ran_effs <- ran_effs - mean(ran_effs)
+  ran_effs <- scale_to(ran_effs, mod$RanEffSD)
 
   return(list(
     forest_res = forest_res,
