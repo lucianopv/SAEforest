@@ -33,14 +33,14 @@ Imports:
     RhpcBLASctl,
     rlang,
     sf,
-    stats,
-    vip
+    stats
 Suggests:
     emdi,
     knitr,
     R.rsp,
     rmarkdown,
-    testthat  (>= 3.0.0)
+    testthat  (>= 3.0.0),
+    vip
 Encoding: UTF-8
 RoxygenNote: 7.3.3
 LazyData: true
