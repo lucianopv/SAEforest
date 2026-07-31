@@ -48,8 +48,18 @@ adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
   if (is.null(adj_tol)) adj_tol <- 0
   n <- length(rf$predictions)
 
-  # centred OOB residuals (paper step 3a) — RNG-free, shared by both paths
+  # centred OOB residuals (paper step 3a) — RNG-free, shared by both paths.
+  # ranger returns NA for an observation that happens to be in-bag in EVERY tree,
+  # so that observation contributes no OOB residual. Drop those before centring: a
+  # single NA would otherwise make mean(e_ij) NA and poison every bootstrap draw
+  # built from the pool. No-op when all residuals are finite, so the legacy
+  # fixture stays byte-identical.
   e_ij <- Y - rf$predictions
+  e_ij <- e_ij[is.finite(e_ij)]
+  if (!length(e_ij)) {
+    stop("adjust_ErrorSD_: no finite OOB residuals to resample from ",
+         "(the forest returned no out-of-bag predictions).")
+  }
   e_ij <- e_ij - mean(e_ij)
 
   if (adj_tol <= 0) {
@@ -60,7 +70,15 @@ adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
       ranger::ranger(y = x, x = X, data = smp_data, ...)
     })
     pred_OOB_star <- sapply(fits, function(x) x$predictions)
-    return(list(K = mean(rowMeans((pred_OOB_star - pred_OOB)^2)), m = B))
+    # na.rm at BOTH levels: this matrix is n x B (1.3M cells in the GridSAE
+    # consumption fit), and a cell is NA whenever that inner forest left that
+    # observation with no OOB prediction. Without na.rm one such cell makes its
+    # whole row NA and the row makes K NA, which then killed the caller's
+    # `if (K > naive_unadj^2)`. Missingness here is a resampling coincidence,
+    # independent of the residual value, so averaging the observed cells is the
+    # right estimator rather than a patch. No-op when nothing is missing.
+    return(list(K = mean(rowMeans((pred_OOB_star - pred_OOB)^2, na.rm = TRUE),
+                         na.rm = TRUE), m = B))
   }
 
   ## ---- adaptive early-stop path ----
@@ -72,15 +90,19 @@ adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
       if (length(g) >= B) break
       y_star_b <- rf$predictions + sample(e_ij, size = n, replace = TRUE)
       fit_b <- ranger::ranger(y = y_star_b, x = X, data = smp_data, ...)
-      g <- c(g, mean((fit_b$predictions - rf$predictions)^2))
+      g <- c(g, mean((fit_b$predictions - rf$predictions)^2, na.rm = TRUE))
     }
-    Kbar   <- mean(g)
+    Kbar   <- mean(g, na.rm = TRUE)
     # length(g) >= 2 guard: sd() of a length-1 vector is NA, which would make the
     # stop condition below error on a degenerate B = 1. No-op for realistic B >= 2
     # (first batch yields length(g) = min(B_BATCH, B) >= 2), so it changes no numbers.
-    rel_se <- if (length(g) >= 2 && Kbar > 0) (stats::sd(g) / sqrt(length(g))) / Kbar else Inf
+    # is.finite(Kbar) guard: same failure as the legacy path -- a non-finite Kbar
+    # made this very `if` throw "missing value where TRUE/FALSE needed". Treat it
+    # as "not yet converged" and keep fitting rather than dying.
+    rel_se <- if (length(g) >= 2 && is.finite(Kbar) && Kbar > 0)
+      (stats::sd(g, na.rm = TRUE) / sqrt(length(g))) / Kbar else Inf
     if (length(g) >= B_MIN && rel_se < adj_tol) break
     if (length(g) >= B) break
   }
-  list(K = mean(g), m = length(g))
+  list(K = mean(g, na.rm = TRUE), m = length(g))
 }

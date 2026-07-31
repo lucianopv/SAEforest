@@ -188,9 +188,12 @@ MERFranger <- function(Y, X, random, data,
       AdjustedTarget <- Target - (AllEffects - forest_preds)
     } else {
       ## ---- variance-adjusted path (Krennmair et al., 2026) ----
+      # na.rm throughout: forest_preds are OOB predictions, and ranger returns NA
+      # for an observation in-bag in every tree. Without na.rm one such value makes
+      # naive_unadj NA, and the comparison below then throws rather than fitting.
       r_ij <- Target - forest_preds
-      r_ij <- r_ij - mean(r_ij)
-      naive_unadj <- sd(Target - forest_preds)
+      r_ij <- r_ij - mean(r_ij, na.rm = TRUE)
+      naive_unadj <- sd(Target - forest_preds, na.rm = TRUE)
 
       res_K <- adjust_ErrorSD_(
         Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
@@ -198,12 +201,22 @@ MERFranger <- function(Y, X, random, data,
       )
       K <- res_K$K
       K_list[[iterations]] <- res_K$K
+      # Defence in depth. adjust_ErrorSD_ now drops missing OOB cells, so K should
+      # always be finite; if some future path still yields NA/NaN, fall back to no
+      # correction for this iteration instead of dying in the comparison below --
+      # `if (NA > x)` is exactly the "missing value where TRUE/FALSE needed" that
+      # killed a 90-minute GridSAE fit 19 minutes in.
+      if (!is.finite(K)) {
+        warning("Variance bias correction K is not finite at iteration ", iterations,
+                "; skipping the correction for this iteration.")
+        K <- 0
+      }
       if (K > naive_unadj^2) {
         warning("Variance bias correction K exceeds naive residual variance; ",
                 "clamping adjusted SD to 0 at iteration ", iterations, ".")
       }
       sd.adjust <- sqrt(max(0, naive_unadj^2 - K))
-      r_ij_new <- (r_ij / sd(r_ij)) * sd.adjust
+      r_ij_new <- (r_ij / sd(r_ij, na.rm = TRUE)) * sd.adjust
 
       lmefit <- lme4::lmer(as.formula(paste0("r_ij_new ~", random)),
                            data = data, REML = TRUE)
