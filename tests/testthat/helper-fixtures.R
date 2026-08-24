@@ -74,3 +74,34 @@ tiny_agg_data <- function(seed = 2026, per_dom = 15) {
     dName = "district"
   )
 }
+
+# Fixture in which sample_select()'s two orderings diverge.
+#
+# tiny_saef_data() hides the divergence twice over: its `pop` is built in sorted
+# domain order (so first-appearance order == factor-level order), and every
+# domain gets the same number of sampled rows (so permuting the sizes is a
+# no-op). This fixture breaks both, reproducing the GridSAE geometry -- pop_data
+# comes from merge(..., by = "cell_id"), so it is ordered by cell, not by the
+# random-effect domain.
+tiny_saef_data_unsorted <- function(seed = 2026) {
+  d <- tiny_saef_data(n_dom = 4, per_dom = 8, seed = seed)
+  doms <- sort(unique(as.character(d$smp[[d$dName]])))
+  stopifnot(length(doms) == 4L)
+
+  # Unequal per-domain sample sizes, ascending in sorted-domain order.
+  keep <- unlist(Map(function(dom, k) {
+    utils::head(which(as.character(d$smp[[d$dName]]) == dom), k)
+  }, doms, c(2L, 4L, 6L, 8L)), use.names = FALSE)
+  d$smp <- d$smp[keep, , drop = FALSE]
+  d$Y   <- d$Y[keep]
+  d$X   <- d$X[keep, , drop = FALSE]
+
+  # Population in REVERSE domain order: first-appearance order is now the
+  # reverse of split()'s factor-level order, deterministically.
+  d$pop <- d$pop[order(as.character(d$pop[[d$dName]]), decreasing = TRUE), ,
+                 drop = FALSE]
+
+  rownames(d$smp) <- NULL
+  rownames(d$pop) <- NULL
+  d
+}
