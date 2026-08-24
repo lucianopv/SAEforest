@@ -80,6 +80,12 @@ MSE_SAEforest_mean <- function(Y,
                                        groups = grp)
   }
 
+  # See MSE_SAEforest_nonLin.R for why this matters: these objects are dead but
+  # reachable, and R's GC defeats copy-on-write across the fork below.
+  pop_data$y_star <- NULL
+  rm(pred_mat, u_i, e_ij, y_star, grp)
+  gc()
+
   # use bootstrap samples to estimate
   dots <- force_serial_threads(cores, ...)
   my_estim_f <- function(x) {

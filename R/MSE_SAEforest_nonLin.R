@@ -73,7 +73,8 @@ MSE_SAEforest_nonLin <- function(Y,
 
   # combine to y_star
   mu_ij <- pred_mat + u_i
-  e_ij <- matrix(NA, nrow = length(pred_vals), ncol = B)
+  # (the matrix(NA, ...) that used to sit here allocated a full N x B matrix --
+  # ~2.74 GB at 6.85M rows x B=50 -- and was overwritten on the next line)
   e_ij <- apply(mu_ij, 2, sample_e)
 
   y_star <- mu_ij + e_ij
@@ -84,24 +85,25 @@ MSE_SAEforest_nonLin <- function(Y,
 
   # get tau_star
   y_star_L <- split(y_star, col(y_star))
-  thresh_L <- sapply(y_star_L, function(x) {
-    get_thresh(x, threshold = threshold)
-  }, simplify = FALSE)
-  y_star_L <- Map(cbind, "y_star" = y_star_L, "thresh" = thresh_L)
+  thresh_L <- lapply(y_star_L, function(x) get_thresh(x, threshold = threshold))
 
-  if(is.null(aggregate_to)){
-    my_agg <- function(x) {
-    tapply(x[, 1], pop_data[[dName]], calc_indicat, threshold = unique(x[, 2]), custom = custom_indicator,
-           select.indicator = select.indicator)
+  # The threshold is a scalar per replicate. It used to be broadcast into a
+  # second N-length column via Map(cbind, ...) and recovered with unique(x[, 2]),
+  # which doubled the largest object in this function (an extra ~5.5 GB at
+  # 6.85M rows x B=50) to carry one number. Passed as an argument instead.
+  if (is.null(aggregate_to)) {
+    my_agg <- function(y, th) {
+      tapply(y, pop_data[[dName]], calc_indicat, threshold = th,
+             custom = custom_indicator, select.indicator = select.indicator)
     }
-  } else{
-    my_agg <- function(x) {
-      tapply(x[, 1], pop_data[[aggregate_to]], calc_indicat, threshold = unique(x[, 2]), custom = custom_indicator,
-             select.indicator = select.indicator)
+  } else {
+    my_agg <- function(y, th) {
+      tapply(y, pop_data[[aggregate_to]], calc_indicat, threshold = th,
+             custom = custom_indicator, select.indicator = select.indicator)
     }
   }
 
-  tau_star <- sapply(y_star_L, my_agg, simplify = FALSE)
+  tau_star <- Map(my_agg, y_star_L, thresh_L)
 
   if(is.null(aggregate_to)){
     comb <- function(x) {
@@ -129,6 +131,16 @@ MSE_SAEforest_nonLin <- function(Y,
     boots_sample[[i]] <- sample_select(pop_data, smp = smp_data, dName = dName,
                                        groups = grp)
   }
+
+  # Everything above is dead once boots_sample and tau_star exist, but all of it
+  # stays reachable from this frame when with_parallel_rng() forks below. R's GC
+  # marks every object in each forked worker, which writes to every page and
+  # defeats copy-on-write -- so these ~20 GB (at 6.85M rows x B=50) are
+  # materialised once per core. Freeing them here is what makes an 8-core task
+  # fit in ~80 GB instead of ~350 GB.
+  pop_data$y_star <- NULL
+  rm(pred_mat, u_i, mu_ij, e_ij, y_star, y_star_L, thresh_L, grp)
+  gc()
 
   # uses sample to estimate tau_b
   if (MC == TRUE) {
