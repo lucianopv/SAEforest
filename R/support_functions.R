@@ -107,35 +107,37 @@ sae_specs <- function(dName, cns, smp) {
 }
 
 
-# Draws random survey samples in the MSE procedures ----------------------------------------
-sample_select <- function(pop, smp, dName) {
-  smpSizes <- table(smp[dName])
-  smpSizes <- data.frame(
-    smpidD = as.character(names(smpSizes)), n_smp = as.numeric(smpSizes),
-    stringsAsFactors = FALSE
+# Draw a bootstrap sample that mirrors the survey's per-domain allocation:
+# each population domain contributes exactly as many units as that same domain
+# contributed to `smp`, drawn without replacement.
+#
+# The sizes are looked up BY NAME against the population split's own domain
+# order. They used to be joined against `unique(pop[[dName]])` -- first-appearance
+# order -- and then paired positionally with `split()`'s factor-level order, so
+# whenever `pop` was not already sorted by `dName` every domain drew some other
+# domain's sample size. Measured on GridSAE's frame that was 97.5% of domains at
+# Distrito, with Spearman ~0 between drawn and true sizes; it is also what raised
+# "cannot take a sample larger than the population" at fine anchors, since a
+# large n could land on a small-N domain.
+#
+# `groups` is an optional precomputed split(seq_len(nrow(pop)), pop[[dName]]).
+# The MSE bootstrap drivers pass it because the domain column is invariant across
+# their B replicates -- only `pop$y_star` changes -- so the split is hoisted out
+# of the loop. Splitting row INDICES rather than rows also avoids materialising
+# thousands of per-domain data.frames, and the single `pop[sel, ]` subset below
+# replaces a do.call(rbind, ...) over all of them.
+sample_select <- function(pop, smp, dName, groups = NULL) {
+  if (is.null(groups)) groups <- split(seq_len(nrow(pop)), pop[[dName]])
+
+  tab <- table(smp[[dName]])
+  ns <- as.numeric(tab)[match(names(groups), names(tab))]
+  ns[is.na(ns)] <- 0
+
+  sel <- unlist(
+    Map(function(idx, n) idx[sample.int(length(idx), n)], groups, ns),
+    use.names = FALSE
   )
-
-  smpSizes <- dplyr::left_join(data.frame(idD = as.character(unique(pop[[dName]]))),
-    smpSizes,
-    by = c("idD" = "smpidD")
-  )
-
-  smpSizes$n_smp[is.na(smpSizes$n_smp)] <- 0
-
-  splitPop <- split(pop, pop[[dName]])
-
-  stratSamp <- function(dfList, ns) {
-    do.call(rbind, mapply(dfList, ns, FUN = function(df, n) {
-      popInd <- seq_len(nrow(df))
-      sel <- base::sample(popInd, n, replace = FALSE)
-      df[sel, ]
-    }, SIMPLIFY = F))
-  }
-
-  samples <- stratSamp(splitPop, smpSizes$n_smp)
-
-  rm(splitPop)
-  return(samples)
+  pop[sel, , drop = FALSE]
 }
 
 
