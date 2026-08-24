@@ -115,10 +115,14 @@ sae_specs <- function(dName, cns, smp) {
 # order. They used to be joined against `unique(pop[[dName]])` -- first-appearance
 # order -- and then paired positionally with `split()`'s factor-level order, so
 # whenever `pop` was not already sorted by `dName` every domain drew some other
-# domain's sample size. Measured on GridSAE's frame that was 97.5% of domains at
-# Distrito, with Spearman ~0 between drawn and true sizes; it is also what raised
-# "cannot take a sample larger than the population" at fine anchors, since a
-# large n could land on a small-N domain.
+# domain's sample size. Measured directly (misaligned input, injected pre-fix
+# body): 97.5% of domains wrong at Distrito on GridSAE's frame, Spearman ~0
+# between drawn and true sizes. Final review 2026-08-24 (finding C1): this was
+# never reachable through SAEforest_model() -- both callers (SAEforest_nonLin.R,
+# SAEforest_mean.R) sort pop_data by dName before any bootstrap runs, so pop is
+# always aligned by the time either MSE driver calls this function. The defect
+# is latent, not live; the fix is a genuine robustness gain regardless (correct
+# for any input ordering, not dependent on a sort enforced elsewhere).
 #
 # `groups` is an optional precomputed split(seq_len(nrow(pop)), pop[[dName]]).
 # The MSE bootstrap drivers pass it because the domain column is invariant across
@@ -127,6 +131,10 @@ sae_specs <- function(dName, cns, smp) {
 # thousands of per-domain data.frames, and the single `pop[sel, ]` subset below
 # replaces a do.call(rbind, ...) over all of them.
 sample_select <- function(pop, smp, dName, groups = NULL) {
+  # A sample domain absent from `pop` has no entry in `groups` (built from
+  # pop[[dName]]), so it silently draws 0 rather than erroring -- fewer rows
+  # end up selected than nrow(smp). Pre-existing, unreachable in GridSAE
+  # (.gridsae_floor_pop_to_sample errors first on that case).
   if (is.null(groups)) groups <- split(seq_len(nrow(pop)), pop[[dName]])
 
   tab <- table(smp[[dName]])

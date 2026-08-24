@@ -1,5 +1,15 @@
 # Regression suite for the sample_select() domain/size misalignment.
 # See GridSAE docs/superpowers/specs/2026-08-24-sample-select-fix-and-hpc-efficiency-design.md
+#
+# Final review 2026-08-24 (finding C1): this defect is LATENT, not live. Both
+# SAEforest_nonLin.R and SAEforest_mean.R re-sort pop_data by dName at entry,
+# before any MSE bootstrap runs, so by the time either of sample_select()'s two
+# call sites (MSE_SAEforest_nonLin.R / MSE_SAEforest_mean.R) reaches it, pop is
+# always aligned. The misalignment is reachable only by calling
+# SAEforest:::sample_select() directly, as these tests do -- no production path
+# (SAEforest_model(), and therefore no GridSAE fit) ever hit it. The tests stay:
+# they pin a genuine correctness property of the function in isolation, and the
+# fix itself is a real robustness/perf improvement (see final-review.md).
 
 drawn_counts <- function(x, dName, doms) {
   as.integer(table(factor(as.character(x[[dName]]), levels = doms)))
