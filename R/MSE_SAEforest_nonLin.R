@@ -119,9 +119,15 @@ MSE_SAEforest_nonLin <- function(Y,
   # get bootstrap samples
   boots_sample <- vector(mode = "list", length = B)
 
+  # The domain column is invariant across replicates -- the loop below rewrites
+  # only pop_data$y_star -- so the per-domain row index split is computed once
+  # here instead of B times inside sample_select().
+  grp <- split(seq_len(nrow(pop_data)), pop_data[[dName]])
+
   for (i in 1:B) {
     pop_data$y_star <- y_star[, i]
-    boots_sample[[i]] <- sample_select(pop_data, smp = smp_data, dName = dName)
+    boots_sample[[i]] <- sample_select(pop_data, smp = smp_data, dName = dName,
+                                       groups = grp)
   }
 
   # uses sample to estimate tau_b
