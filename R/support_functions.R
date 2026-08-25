@@ -482,13 +482,40 @@ pin_blas_threads <- function() {
 # to 1 when running in parallel, so each fork worker uses one thread (no
 # oversubscription). cores == 1 returns the args unchanged. Warns once if the caller
 # set a conflicting num.threads.
-force_serial_threads <- function(cores, ...) {
+# `worker.threads` opts each forked MSE worker into multi-threaded ranger instead
+# of the default 1. Memory scales with the number of WORKERS, since each worker's
+# allocations are private, while threads share one address space -- so trading
+# processes for threads at a fixed CPU count cuts memory without losing
+# parallelism. Measured on GridSAE (Distrito, B=24, 8 CPUs throughout):
+#
+#     8 workers x 1 thread   1894 s   232 GB
+#     4 workers x 2 threads  1964 s   137 GB
+#     2 workers x 4 threads  2127 s    82 GB
+#
+# i.e. 12% slower for 2.8x less memory, which on a memory-bound scheduler is a
+# large net win. MSE estimates verified indistinguishable from the 1-thread
+# configuration (+0.12 seed-sd against a 4-seed reference at B=50).
+#
+# Default stays 1: this must be opted into deliberately, because cores x threads
+# exceeding the allocation oversubscribes the node badly -- the original reason
+# this function pinned to 1. The check below makes that failure loud instead.
+force_serial_threads <- function(cores, ..., worker.threads = 1L) {
   dots <- list(...)
   if (cores > 1L) {
-    if (!is.null(dots$num.threads) && !identical(as.integer(dots$num.threads), 1L)) {
+    wt <- as.integer(worker.threads)
+    if (is.na(wt) || wt < 1L) stop("worker.threads must be a positive integer.")
+    if (wt > 1L) {
+      alloc <- suppressWarnings(as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", NA)))
+      if (!is.na(alloc) && cores * wt > alloc) {
+        stop(sprintf(paste0("cores (%d) x worker.threads (%d) = %d exceeds the ",
+                            "allocation SLURM_CPUS_PER_TASK (%d); this would ",
+                            "oversubscribe the node."), cores, wt, cores * wt, alloc))
+      }
+    } else if (!is.null(dots$num.threads) &&
+               !identical(as.integer(dots$num.threads), 1L)) {
       warning("num.threads forced to 1 inside parallel MSE workers (cores > 1) to avoid oversubscription.")
     }
-    dots$num.threads <- 1L
+    dots$num.threads <- wt
   }
   dots
 }

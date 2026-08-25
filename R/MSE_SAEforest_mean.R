@@ -13,6 +13,7 @@ MSE_SAEforest_mean <- function(Y,
                                MaxIterations = 25,
                                aggregate_to = NULL,
                                cores = 1,
+                               worker.threads = 1L,
                                ...) {
 
   rand_struc <- paste0(paste0("(1|", dName), ")")
@@ -87,7 +88,7 @@ MSE_SAEforest_mean <- function(Y,
   gc()
 
   # use bootstrap samples to estimate
-  dots <- force_serial_threads(cores, ...)
+  dots <- force_serial_threads(cores, ..., worker.threads = worker.threads)
   my_estim_f <- function(x) {
     if (cores > 1L) pin_blas_threads()
     do.call(point_mean, c(list(

@@ -26,6 +26,7 @@ SAEforest_nonLin <- function(Y,
                              select.indicator = NULL,
                              out_call,
                              cores = 1,
+                             worker.threads = 1L,
                              n_smear_residuals = NULL,
                              ...) {
 
@@ -136,6 +137,7 @@ SAEforest_nonLin <- function(Y,
         transformation = transformation,
         select.indicator = select.indicator,
         cores = cores,
+        worker.threads = worker.threads,
         ...
       )
 
@@ -177,6 +179,7 @@ SAEforest_nonLin <- function(Y,
         transformation = transformation,
         select.indicator = select.indicator,
         cores = cores,
+        worker.threads = worker.threads,
         ...
       )
 
@@ -274,6 +277,7 @@ SAEforest_nonLin <- function(Y,
         mse_tol = mse_tol,
         select.indicator = select.indicator,
         cores = cores,
+        worker.threads = worker.threads,
         ...
       )
 
@@ -314,6 +318,7 @@ SAEforest_nonLin <- function(Y,
         mse_tol = mse_tol,
         select.indicator = select.indicator,
         cores = cores,
+        worker.threads = worker.threads,
         ...
       )
 

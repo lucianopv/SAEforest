@@ -25,6 +25,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  transformation = c("none", "log"),
                                  select.indicator = NULL,
                                  cores = 1,
+                                 worker.threads = 1L,
                                  ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -144,7 +145,7 @@ MSE_SAEforest_nonLin <- function(Y,
 
   # uses sample to estimate tau_b
   if (MC == TRUE) {
-    dots <- force_serial_threads(cores, ...)
+    dots <- force_serial_threads(cores, ..., worker.threads = worker.threads)
     my_estim_f <- function(x) {
       if (cores > 1L) pin_blas_threads()
       do.call(point_MC_nonLin, c(list(
@@ -158,7 +159,7 @@ MSE_SAEforest_nonLin <- function(Y,
   }
 
   if (MC == FALSE) {
-    dots <- force_serial_threads(cores, ...)
+    dots <- force_serial_threads(cores, ..., worker.threads = worker.threads)
     my_estim_f <- function(x) {
       if (cores > 1L) pin_blas_threads()
       do.call(point_nonLin, c(list(

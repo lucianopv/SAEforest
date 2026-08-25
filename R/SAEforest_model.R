@@ -291,6 +291,7 @@ SAEforest_model <- function(Y,
                             select.indicator = NULL,
                             seed = NULL,
                             cores = 1,
+                            worker.threads = 1L,
                             n_smear_residuals = NULL,
                             ...) {
 
@@ -347,6 +348,7 @@ SAEforest_model <- function(Y,
       na.rm = na.rm,
       out_call = out_call,
       cores = cores,
+      worker.threads = worker.threads,
       ...
     )
 
@@ -383,6 +385,7 @@ SAEforest_model <- function(Y,
       select.indicator = select.indicator,
       out_call = out_call,
       cores = cores,
+      worker.threads = worker.threads,
       n_smear_residuals = n_smear_residuals,
       ...
     )
