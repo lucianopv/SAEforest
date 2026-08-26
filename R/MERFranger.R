@@ -41,6 +41,12 @@
 #' forests, capped at \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
 #' always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 #' \code{var.adjust = FALSE}.
+#' @param K_fixed Optional finite numeric vector of per-iteration bias terms.
+#' When supplied (requires \code{var.adjust = TRUE}), iteration \code{i} uses
+#' \code{K_fixed[[min(i, length(K_fixed))]]} instead of estimating K with the
+#' inner bootstrap. Used by the MSE bootstrap's plug-in mode
+#' (\code{adjust_mse = "plugin"}), which passes the point fit's per-iteration
+#' K values. Defaults to \code{NULL} (estimate K, current behaviour).
 #' @param seed Integer value used to seed R's random number generator once at the start of the
 #' function, enabling reproducibility for direct, standalone calls of \code{MERFranger}. If
 #' \code{NULL} (the default), no seed is set. Note that \code{\link{SAEforest_model}} does not
@@ -139,6 +145,7 @@ MERFranger <- function(Y, X, random, data,
                        var.adjust = FALSE,
                        B_adj = 100,
                        adj_tol = 0.05,
+                       K_fixed = NULL,
                        seed = NULL,
                        ...) {
 
@@ -158,6 +165,15 @@ MERFranger <- function(Y, X, random, data,
   if (isTRUE(var.adjust) &&
       !(is.numeric(B_adj) && length(B_adj) == 1 && !is.na(B_adj) && B_adj >= 1)) {
     stop("When var.adjust = TRUE, B_adj must be a single numeric value >= 1.")
+  }
+
+  if (!is.null(K_fixed)) {
+    if (!isTRUE(var.adjust)) {
+      stop("K_fixed requires var.adjust = TRUE.")
+    }
+    if (!(is.numeric(K_fixed) && length(K_fixed) >= 1 && all(is.finite(K_fixed)))) {
+      stop("K_fixed must be a finite numeric vector of length >= 1.")
+    }
   }
 
   if (!is.null(seed)) set.seed(seed)
@@ -195,12 +211,23 @@ MERFranger <- function(Y, X, random, data,
       r_ij <- r_ij - mean(r_ij, na.rm = TRUE)
       naive_unadj <- sd(Target - forest_preds, na.rm = TRUE)
 
-      res_K <- adjust_ErrorSD_(
-        Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
-        B = B_adj, adj_tol = adj_tol, ...
-      )
-      K <- res_K$K
-      K_list[[iterations]] <- res_K$K
+      if (is.null(K_fixed)) {
+        res_K <- adjust_ErrorSD_(
+          Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
+          B = B_adj, adj_tol = adj_tol, ...
+        )
+        K <- res_K$K
+        K_list[[iterations]] <- res_K$K
+      } else {
+        # Plug-in K (adjust_mse = "plugin"): reuse the point fit's
+        # per-iteration K instead of re-estimating it with B_adj inner
+        # forests. Iterations beyond length(K_fixed) reuse the last value.
+        # Consumes no RNG, so plugin replicate streams differ from refit
+        # streams by design; everything else on this path is unchanged
+        # (own naive_unadj, clamp warning, rescale, REML lmer).
+        K <- K_fixed[[min(iterations, length(K_fixed))]]
+        K_list[[iterations]] <- K
+      }
       # Defence in depth. adjust_ErrorSD_ now drops missing OOB cells, so K should
       # always be finite; if some future path still yields NA/NaN, fall back to no
       # correction for this iteration instead of dying in the comparison below --

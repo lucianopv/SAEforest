@@ -17,6 +17,7 @@ MERFranger(
   var.adjust = FALSE,
   B_adj = 100,
   adj_tol = 0.05,
+  K_fixed = NULL,
   seed = NULL,
   ...
 )
@@ -64,6 +65,13 @@ once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least \code{min(20, B_adj)
 forests, capped at \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
 always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 \code{var.adjust = FALSE}.}
+
+\item{K_fixed}{Optional finite numeric vector of per-iteration bias terms.
+When supplied (requires \code{var.adjust = TRUE}), iteration \code{i} uses
+\code{K_fixed[[min(i, length(K_fixed))]]} instead of estimating K with the
+inner bootstrap. Used by the MSE bootstrap's plug-in mode
+(\code{adjust_mse = "plugin"}), which passes the point fit's per-iteration
+K values. Defaults to \code{NULL} (estimate K, current behaviour).}
 
 \item{seed}{Integer value used to seed R's random number generator once at the start of the
 function, enabling reproducibility for direct, standalone calls of \code{MERFranger}. If
