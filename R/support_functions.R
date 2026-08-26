@@ -519,3 +519,31 @@ force_serial_threads <- function(cores, ..., worker.threads = 1L) {
   }
   dots
 }
+
+# Deduplicated population predictions (spec 2026-08-26, design A) --------------
+
+# Predict once per dedup_by level and expand back to all rows. Covariates are
+# constant within a level (validated once at SAEforest_nonLin entry via
+# check_dedup_by), and ranger predictions are deterministic per row, so this is
+# byte-identical to predicting every row. Consumes no RNG. dedup_by = NULL is a
+# passthrough, byte-identical to the original predict call.
+predict_forest_dedup <- function(forest, data, dedup_by = NULL, ...) {
+  if (is.null(dedup_by)) return(predict(forest, data, ...)$predictions)
+  key <- data[[dedup_by]]
+  first <- !duplicated(key)
+  preds <- predict(forest, data[first, , drop = FALSE], ...)$predictions
+  preds[match(key, key[first])]
+}
+
+# Random-effect predictions deduplicated by the grouping column. The effect
+# model's RHS depends only on dName (a random intercept, with or without a
+# fixed intercept), so predicting a one-row-per-level newdata and expanding by
+# match is byte-identical to predicting every row. Routed through
+# predict.merMod so lme4's allow.new.levels semantics (unseen level -> fixed
+# part only) are preserved exactly rather than re-implemented.
+predict_ranef_dedup <- function(effect_model, data, dName) {
+  lv <- unique(data[[dName]])
+  nd <- stats::setNames(data.frame(lv), dName)
+  pr <- predict(effect_model, newdata = nd, allow.new.levels = TRUE)
+  pr[match(data[[dName]], lv)]
+}
