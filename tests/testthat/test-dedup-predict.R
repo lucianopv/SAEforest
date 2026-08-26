@@ -55,6 +55,23 @@ test_that("dedup_by is byte-identical end-to-end (none + log transformations)", 
   }
 })
 
+test_that("dedup_by is byte-identical end-to-end with aggregate_to (finer than dName)", {
+  skip_on_cran(); skip_if_not_installed("emdi")
+  d <- tiny_saef_data_with_subunit()
+  pop2 <- d$pop[rep(seq_len(nrow(d$pop)), each = 3), , drop = FALSE]
+  pop2$cellkey <- rep(seq_len(nrow(d$pop)), each = 3)
+  rownames(pop2) <- NULL
+
+  run <- function(dd) SAEforest_model(Y = d$Y, X = d$X, dName = d$dName,
+    smp_data = d$smp, pop_data = pop2, meanOnly = FALSE,
+    MSE = "nonparametric", B = 2, num.trees = 50, threshold = median(d$Y),
+    var.adjust = TRUE, B_adj = 5, adj_tol = 0.05, transformation = "none",
+    seed = 1, aggregate_to = "subunit", dedup_by = dd)
+  base <- run(NULL); dedup <- run("cellkey")
+  expect_identical(base$Indicators, dedup$Indicators)
+  expect_identical(base$MSE_Estimates, dedup$MSE_Estimates)
+})
+
 test_that("dedup_by errors loudly when a covariate varies within a level", {
   skip_on_cran(); skip_if_not_installed("emdi")
   d <- dedup_e2e_fixture()

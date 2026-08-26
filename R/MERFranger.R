@@ -217,6 +217,9 @@ MERFranger <- function(Y, X, random, data,
           B = B_adj, adj_tol = adj_tol, ...
         )
         K <- res_K$K
+        # K_list deliberately records the RAW estimate (pre !is.finite defence
+        # below); sanitize_K_fixed() relies on this ordering when plugging
+        # these values into MSE replicates.
         K_list[[iterations]] <- res_K$K
       } else {
         # Plug-in K (adjust_mse = "plugin"): reuse the point fit's

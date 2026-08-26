@@ -520,6 +520,23 @@ force_serial_threads <- function(cores, ..., worker.threads = 1L) {
   dots
 }
 
+# The point fit records the RAW per-iteration K in K_list -- including a
+# non-finite value that MERFranger's own defence replaced with 0 for the
+# actual fit. Plugging the raw NA into the replicates would kill each one
+# late, inside forked workers. Mirror the point fit's effective behaviour
+# instead: substitute 0, loudly.
+sanitize_K_fixed <- function(K) {
+  bad <- !is.finite(K)
+  if (any(bad)) {
+    warning("Non-finite point-fit K at iteration(s) ",
+            paste(which(bad), collapse = ", "),
+            "; the point fit fell back to K = 0 there, so the plug-in ",
+            "values do the same.")
+    K[bad] <- 0
+  }
+  K
+}
+
 # Deduplicated population predictions (spec 2026-08-26, design A) --------------
 
 # Predict once per dedup_by level and expand back to all rows. Covariates are
@@ -532,26 +549,33 @@ predict_forest_dedup <- function(forest, data, dedup_by = NULL, ...) {
   key <- data[[dedup_by]]
   first <- !duplicated(key)
   preds <- predict(forest, data[first, , drop = FALSE], ...)$predictions
+  # A matrix/list prediction type (e.g. quantile forests) would silently
+  # flatten under the match()-expansion below instead of erroring loudly.
+  stopifnot(is.null(dim(preds)))
   preds[match(key, key[first])]
 }
 
 # Random-effect predictions deduplicated by the grouping column. The effect
 # model's RHS depends only on dName (a random intercept, with or without a
 # fixed intercept), so predicting a one-row-per-level newdata and expanding by
-# match is byte-identical to predicting every row. Routed through
-# predict.merMod so lme4's allow.new.levels semantics (unseen level -> fixed
-# part only) are preserved exactly rather than re-implemented.
+# match gives values byte-identical to predicting every row; names are
+# dropped (every consumer discards them). Routed through predict.merMod so
+# lme4's allow.new.levels semantics (unseen level -> fixed part only) are
+# preserved exactly rather than re-implemented.
 predict_ranef_dedup <- function(effect_model, data, dName) {
   lv <- unique(data[[dName]])
   nd <- stats::setNames(data.frame(lv), dName)
   pr <- predict(effect_model, newdata = nd, allow.new.levels = TRUE)
-  pr[match(data[[dName]], lv)]
+  unname(pr[match(data[[dName]], lv)])
 }
 
 # Validate that every covariate is constant within each dedup_by level.
 # Reports offending COLUMN NAMES and the NUMBER of violating levels only --
 # never row values (privacy: this runs on confidential survey microdata).
 check_dedup_by <- function(pop_data, X, dedup_by) {
+  # A dimensionless X (no colnames) would make the covariate-constancy loop
+  # below a silent no-op, passing validation without checking anything.
+  stopifnot(!is.null(colnames(X)))
   if (!(is.character(dedup_by) && length(dedup_by) == 1L &&
         dedup_by %in% colnames(pop_data))) {
     stop("dedup_by must name a single column of pop_data.")

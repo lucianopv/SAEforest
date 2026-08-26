@@ -64,9 +64,23 @@ test_that("the point fit's K values reach the replicate fits", {
       orig_point_nonLin(..., K_fixed = K_fixed)
     }
   )
-  plugin_run("plugin")
+  res <- plugin_run("plugin")
   expect_true(is.numeric(seen$last_K) && length(seen$last_K) >= 1)
   expect_true(all(is.finite(seen$last_K)))
+  # The replicates' K_fixed is exactly the point fit's own per-iteration K
+  # (the mock delegates, so the run returns normally; MERFmodel is a c() of
+  # the MERFranger object with extras, so $K lives there unchanged).
+  expect_equal(seen$last_K, unlist(res$MERFmodel$K))
+})
+
+test_that("sanitize_K_fixed substitutes non-finite point-fit K with 0, loudly", {
+  expect_warning(
+    out <- sanitize_K_fixed(c(0.4, NA_real_, 0.3)),
+    "Non-finite point-fit K"
+  )
+  expect_equal(out, c(0.4, 0, 0.3))
+  expect_silent(out2 <- sanitize_K_fixed(c(0.4, 0.3)))
+  expect_identical(out2, c(0.4, 0.3))
 })
 
 test_that("adjust_mse guards", {

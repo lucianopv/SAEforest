@@ -95,6 +95,7 @@ SAEforest_nonLin <- function(Y,
     K_fixed_mse <- NULL
     if (adjust_mse == "plugin" && MSE != "none") {
       K_fixed_mse <- unlist(nonLin_preds[[2]]$K)
+      K_fixed_mse <- sanitize_K_fixed(K_fixed_mse)
       stopifnot(is.numeric(K_fixed_mse), length(K_fixed_mse) >= 1)
     }
 
@@ -251,6 +252,7 @@ SAEforest_nonLin <- function(Y,
     K_fixed_mse <- NULL
     if (adjust_mse == "plugin" && MSE != "none") {
       K_fixed_mse <- unlist(nonLin_preds[[2]]$K)
+      K_fixed_mse <- sanitize_K_fixed(K_fixed_mse)
       stopifnot(is.numeric(K_fixed_mse), length(K_fixed_mse) >= 1)
     }
 
