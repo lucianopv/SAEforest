@@ -28,3 +28,60 @@ test_that("predict_ranef_dedup equals predict.merMod incl. unseen levels", {
   dd <- predict_ranef_dedup(fit, nd, "district")
   expect_identical(unname(dd), unname(full))
 })
+
+# End-to-end: dedup_by must be BYTE-identical through the full pipeline, on
+# both the production transformation paths, with var.adjust + MSE on.
+dedup_e2e_fixture <- function() {
+  d <- tiny_saef_data()
+  pop2 <- d$pop[rep(seq_len(nrow(d$pop)), each = 3), , drop = FALSE]
+  pop2$cellkey <- rep(seq_len(nrow(d$pop)), each = 3)
+  rownames(pop2) <- NULL
+  d$pop2 <- pop2
+  d
+}
+
+test_that("dedup_by is byte-identical end-to-end (none + log transformations)", {
+  skip_on_cran(); skip_if_not_installed("emdi")
+  d <- dedup_e2e_fixture()
+  for (tr in c("none", "log")) {
+    run <- function(dd) SAEforest_model(Y = d$Y, X = d$X, dName = d$dName,
+      smp_data = d$smp, pop_data = d$pop2, meanOnly = FALSE,
+      MSE = "nonparametric", B = 2, num.trees = 50, threshold = median(d$Y),
+      var.adjust = TRUE, B_adj = 5, adj_tol = 0.05, transformation = tr,
+      seed = 1, dedup_by = dd)
+    base <- run(NULL); dedup <- run("cellkey")
+    expect_identical(base$Indicators, dedup$Indicators)
+    expect_identical(base$MSE_Estimates, dedup$MSE_Estimates)
+  }
+})
+
+test_that("dedup_by errors loudly when a covariate varies within a level", {
+  skip_on_cran(); skip_if_not_installed("emdi")
+  d <- dedup_e2e_fixture()
+  d$pop2$cash[1] <- d$pop2$cash[1] + 1   # break constancy in level 1 only
+  expect_error(
+    SAEforest_model(Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp,
+      pop_data = d$pop2, meanOnly = FALSE, MSE = "none", num.trees = 25,
+      threshold = median(d$Y), seed = 1, dedup_by = "cellkey"),
+    "vary within")
+})
+
+test_that("dedup_by naming a missing column errors loudly", {
+  skip_on_cran(); skip_if_not_installed("emdi")
+  d <- dedup_e2e_fixture()
+  expect_error(
+    SAEforest_model(Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp,
+      pop_data = d$pop2, meanOnly = FALSE, MSE = "none", num.trees = 25,
+      threshold = median(d$Y), seed = 1, dedup_by = "no_such_column"),
+    "single column of pop_data")
+})
+
+test_that("dedup_by is refused on meanOnly and aggData paths", {
+  skip_on_cran(); skip_if_not_installed("emdi")
+  d <- dedup_e2e_fixture()
+  expect_error(
+    SAEforest_model(Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp,
+      pop_data = d$pop2, meanOnly = TRUE, num.trees = 25, seed = 1,
+      dedup_by = "cellkey"),
+    "unit-level non-linear")
+})

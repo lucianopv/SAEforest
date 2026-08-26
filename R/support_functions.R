@@ -547,3 +547,33 @@ predict_ranef_dedup <- function(effect_model, data, dName) {
   pr <- predict(effect_model, newdata = nd, allow.new.levels = TRUE)
   pr[match(data[[dName]], lv)]
 }
+
+# Validate that every covariate is constant within each dedup_by level.
+# Reports offending COLUMN NAMES and the NUMBER of violating levels only --
+# never row values (privacy: this runs on confidential survey microdata).
+check_dedup_by <- function(pop_data, X, dedup_by) {
+  if (!(is.character(dedup_by) && length(dedup_by) == 1L &&
+        dedup_by %in% colnames(pop_data))) {
+    stop("dedup_by must name a single column of pop_data.")
+  }
+  key <- pop_data[[dedup_by]]
+  first <- !duplicated(key)
+  ref <- match(key, key[first])
+  bad_cols <- character(0); bad_levels <- integer(0)
+  for (cn in colnames(X)) {
+    x <- pop_data[[cn]]
+    xf <- x[first][ref]
+    same <- (x == xf) | (is.na(x) & is.na(xf))   # one-sided NA -> NA -> "differs"
+    if (!isTRUE(all(same))) {
+      bad_cols <- c(bad_cols, cn)
+      bad_levels <- union(bad_levels, unique(ref[!same | is.na(same)]))
+    }
+  }
+  if (length(bad_cols)) {
+    stop("dedup_by = '", dedup_by, "' is invalid: covariate(s) ",
+         paste(bad_cols, collapse = ", "), " vary within ",
+         length(bad_levels), " level(s) of ", dedup_by,
+         ". Refusing to deduplicate predictions.")
+  }
+  invisible(TRUE)
+}

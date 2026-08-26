@@ -80,6 +80,7 @@ point_nonLin <- function(Y,
                          select.indicator = NULL,
                          cores = 1,
                          n_smear_residuals = NULL,
+                         dedup_by = NULL,
                          ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -114,8 +115,15 @@ point_nonLin <- function(Y,
     ...
   )
 
-  unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
-    predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+  # dedup_by = NULL keeps the original calls byte-for-byte; non-NULL computes
+  # each distinct level's prediction once and expands (exact, no RNG).
+  if (is.null(dedup_by)) {
+    unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
+      predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+  } else {
+    unit_preds <- predict_forest_dedup(unit_model$Forest, pop_data, dedup_by) +
+      predict_ranef_dedup(unit_model$EffectModel, pop_data, dName)
+  }
 
 
   #  smearing step
@@ -391,6 +399,7 @@ point_MC_nonLin <- function(Y,
                             B_adj = 100,
                             adj_tol = 0,
                             select.indicator = NULL,
+                            dedup_by = NULL,
                             ...) {
 
   domains <- names(table(pop_data[[dName]]))
@@ -420,8 +429,13 @@ point_MC_nonLin <- function(Y,
     ...
   )
 
-  unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
-    predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+  if (is.null(dedup_by)) {
+    unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
+      predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+  } else {
+    unit_preds <- predict_forest_dedup(unit_model$Forest, pop_data, dedup_by) +
+      predict_ranef_dedup(unit_model$EffectModel, pop_data, dName)
+  }
 
   # preparing data for MC step
   ran_obj <- ran_comp(Y = Y, smp_data = smp_data, mod = unit_model, ADJsd = unit_model$ErrorSD, dName = dName)

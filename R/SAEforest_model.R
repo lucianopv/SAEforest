@@ -141,6 +141,13 @@
 #' regardless of this setting, so combining a non-\code{NULL} value here with an
 #' MSE request estimates uncertainty for a different (full-residual) estimator
 #' than the point estimates actually returned.
+#' @param dedup_by Optional character naming a \code{pop_data} column such that
+#' every covariate in \code{X} is constant within each of its levels (e.g. a
+#' grid-cell id when covariates are cell-level). Population predictions are
+#' then computed once per level and expanded -- byte-identical to full-row
+#' prediction and validated at entry; the run stops if any covariate varies
+#' within a level. Only supported on the unit-level non-linear path. Defaults
+#' to \code{NULL} (no deduplication).
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
@@ -293,6 +300,7 @@ SAEforest_model <- function(Y,
                             cores = 1,
                             worker.threads = 1L,
                             n_smear_residuals = NULL,
+                            dedup_by = NULL,
                             ...) {
 
   input_checks_model(
@@ -323,6 +331,10 @@ SAEforest_model <- function(Y,
   if (!identical(transformation, "none") && (isTRUE(meanOnly) || isTRUE(aggData) || isFALSE(smearing))) {
     warning("transformation = '", transformation, "' is only applied on the non-linear ",
             "smearing path; it is ignored for meanOnly/aggData/smearing = FALSE.")
+  }
+  if (!is.null(dedup_by) && (isTRUE(meanOnly) || isTRUE(aggData))) {
+    stop("dedup_by is only supported on the unit-level non-linear path ",
+         "(meanOnly = FALSE, aggData = FALSE).")
   }
 
   if (meanOnly == TRUE || aggData == TRUE) {
@@ -387,6 +399,7 @@ SAEforest_model <- function(Y,
       cores = cores,
       worker.threads = worker.threads,
       n_smear_residuals = n_smear_residuals,
+      dedup_by = dedup_by,
       ...
     )
 

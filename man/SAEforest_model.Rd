@@ -37,7 +37,9 @@ SAEforest_model(
   select.indicator = NULL,
   seed = NULL,
   cores = 1,
+  worker.threads = 1L,
   n_smear_residuals = NULL,
+  dedup_by = NULL,
   ...
 )
 }
@@ -198,6 +200,14 @@ Only affects point estimates -- the MSE bootstrap (\code{MSE = "wild"} or
 regardless of this setting, so combining a non-\code{NULL} value here with an
 MSE request estimates uncertainty for a different (full-residual) estimator
 than the point estimates actually returned.}
+
+\item{dedup_by}{Optional character naming a \code{pop_data} column such that
+every covariate in \code{X} is constant within each of its levels (e.g. a
+grid-cell id when covariates are cell-level). Population predictions are
+then computed once per level and expanded -- byte-identical to full-row
+prediction and validated at entry; the run stops if any covariate varies
+within a level. Only supported on the unit-level non-linear path. Defaults
+to \code{NULL} (no deduplication).}
 
 \item{...}{Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 Most important parameters are for instance \code{mtry} (number of variables to possibly split at

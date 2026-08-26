@@ -26,6 +26,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  select.indicator = NULL,
                                  cores = 1,
                                  worker.threads = 1L,
+                                 dedup_by = NULL,
                                  ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -36,7 +37,7 @@ MSE_SAEforest_nonLin <- function(Y,
   in_samp <- domains %in% t(unique(smp_data[dName]))
   N_i <- as.numeric(table(pop_data[[dName]]))
 
-  pred_vals <- predict(mod$Forest, pop_data)$predictions
+  pred_vals <- predict_forest_dedup(mod$Forest, pop_data, dedup_by)
   pred_mat <- matrix(pred_vals, nrow = length(pred_vals), ncol = B)
 
   # Prepare data for sampling
@@ -154,7 +155,8 @@ MSE_SAEforest_nonLin <- function(Y,
         ErrorTolerance = ErrorTolerance, B_point = B_point, MaxIterations = MaxIterations,
         custom_indicator = custom_indicator, aggregate_to = aggregate_to,
         var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol_mse,
-        select.indicator = select.indicator), dots))[[1]][, -1]
+        select.indicator = select.indicator,
+        dedup_by = dedup_by), dots))[[1]][, -1]
     }
   }
 
@@ -168,7 +170,8 @@ MSE_SAEforest_nonLin <- function(Y,
         ErrorTolerance = ErrorTolerance, MaxIterations = MaxIterations,
         custom_indicator = custom_indicator, aggregate_to = aggregate_to,
         var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol_mse,
-        transformation = transformation, select.indicator = select.indicator), dots))[[1]][, -1]
+        transformation = transformation, select.indicator = select.indicator,
+        dedup_by = dedup_by), dots))[[1]][, -1]
     }
   }
 

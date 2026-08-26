@@ -28,6 +28,7 @@ SAEforest_nonLin <- function(Y,
                              cores = 1,
                              worker.threads = 1L,
                              n_smear_residuals = NULL,
+                             dedup_by = NULL,
                              ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -50,6 +51,11 @@ SAEforest_nonLin <- function(Y,
   X <- X[order_in, ]
   Y <- Y[order_in]
   pop_data <- pop_data[order(pop_data[[dName]]), ]
+
+  # Validate the dedup key ONCE, up front, on the final pop_data (the stable
+  # sort above preserves level grouping). A violated key must fail loudly here,
+  # not silently produce wrong predictions downstream.
+  if (!is.null(dedup_by)) check_dedup_by(pop_data, X, dedup_by)
 
 
   # Point and MSE estimates for domain-level indicators and unit-level data (smearing) ------
@@ -74,6 +80,7 @@ SAEforest_nonLin <- function(Y,
       adj_tol = adj_tol,
       transformation = transformation,
       select.indicator = select.indicator,
+      dedup_by = dedup_by,
       cores = cores,
       n_smear_residuals = n_smear_residuals,
       ...
@@ -136,6 +143,7 @@ SAEforest_nonLin <- function(Y,
         mse_tol = mse_tol,
         transformation = transformation,
         select.indicator = select.indicator,
+        dedup_by = dedup_by,
         cores = cores,
         worker.threads = worker.threads,
         ...
@@ -178,6 +186,7 @@ SAEforest_nonLin <- function(Y,
         mse_tol = mse_tol,
         transformation = transformation,
         select.indicator = select.indicator,
+        dedup_by = dedup_by,
         cores = cores,
         worker.threads = worker.threads,
         ...
@@ -217,6 +226,7 @@ SAEforest_nonLin <- function(Y,
       B_adj = B_adj,
       adj_tol = adj_tol,
       select.indicator = select.indicator,
+      dedup_by = dedup_by,
       ...
     )
 
@@ -276,6 +286,7 @@ SAEforest_nonLin <- function(Y,
         adj_tol_mse = adj_tol_mse,
         mse_tol = mse_tol,
         select.indicator = select.indicator,
+        dedup_by = dedup_by,
         cores = cores,
         worker.threads = worker.threads,
         ...
@@ -317,6 +328,7 @@ SAEforest_nonLin <- function(Y,
         adj_tol_mse = adj_tol_mse,
         mse_tol = mse_tol,
         select.indicator = select.indicator,
+        dedup_by = dedup_by,
         cores = cores,
         worker.threads = worker.threads,
         ...
