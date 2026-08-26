@@ -29,9 +29,11 @@ SAEforest_nonLin <- function(Y,
                              worker.threads = 1L,
                              n_smear_residuals = NULL,
                              dedup_by = NULL,
+                             adjust_mse = c("refit", "plugin"),
                              ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
+  adjust_mse <- match.arg(adjust_mse, c("refit", "plugin"))
 
   if (na.rm == TRUE) {
     comp_smp <- complete.cases(smp_data)
@@ -85,6 +87,16 @@ SAEforest_nonLin <- function(Y,
       n_smear_residuals = n_smear_residuals,
       ...
     )
+
+    # Plug-in K for the MSE replicates: the point fit's per-iteration K values,
+    # estimated exactly as before, are handed to every replicate fit instead of
+    # being re-estimated with B_adj inner forests per iteration. The point fit
+    # itself is never plugged.
+    K_fixed_mse <- NULL
+    if (adjust_mse == "plugin" && MSE != "none") {
+      K_fixed_mse <- unlist(nonLin_preds[[2]]$K)
+      stopifnot(is.numeric(K_fixed_mse), length(K_fixed_mse) >= 1)
+    }
 
     if(is.null(aggregate_to)){
       data_specs <- sae_specs(dName = dName, cns = pop_data, smp = smp_data)
@@ -144,6 +156,7 @@ SAEforest_nonLin <- function(Y,
         transformation = transformation,
         select.indicator = select.indicator,
         dedup_by = dedup_by,
+        K_fixed = K_fixed_mse,
         cores = cores,
         worker.threads = worker.threads,
         ...
@@ -187,6 +200,7 @@ SAEforest_nonLin <- function(Y,
         transformation = transformation,
         select.indicator = select.indicator,
         dedup_by = dedup_by,
+        K_fixed = K_fixed_mse,
         cores = cores,
         worker.threads = worker.threads,
         ...
@@ -229,6 +243,16 @@ SAEforest_nonLin <- function(Y,
       dedup_by = dedup_by,
       ...
     )
+
+    # Plug-in K for the MSE replicates: the point fit's per-iteration K values,
+    # estimated exactly as before, are handed to every replicate fit instead of
+    # being re-estimated with B_adj inner forests per iteration. The point fit
+    # itself is never plugged.
+    K_fixed_mse <- NULL
+    if (adjust_mse == "plugin" && MSE != "none") {
+      K_fixed_mse <- unlist(nonLin_preds[[2]]$K)
+      stopifnot(is.numeric(K_fixed_mse), length(K_fixed_mse) >= 1)
+    }
 
     if(is.null(aggregate_to)){
       data_specs <- sae_specs(dName = dName, cns = pop_data, smp = smp_data)
@@ -287,6 +311,7 @@ SAEforest_nonLin <- function(Y,
         mse_tol = mse_tol,
         select.indicator = select.indicator,
         dedup_by = dedup_by,
+        K_fixed = K_fixed_mse,
         cores = cores,
         worker.threads = worker.threads,
         ...
@@ -329,6 +354,7 @@ SAEforest_nonLin <- function(Y,
         mse_tol = mse_tol,
         select.indicator = select.indicator,
         dedup_by = dedup_by,
+        K_fixed = K_fixed_mse,
         cores = cores,
         worker.threads = worker.threads,
         ...

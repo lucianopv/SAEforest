@@ -27,6 +27,7 @@ MSE_SAEforest_nonLin <- function(Y,
                                  cores = 1,
                                  worker.threads = 1L,
                                  dedup_by = NULL,
+                                 K_fixed = NULL,
                                  ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -156,7 +157,7 @@ MSE_SAEforest_nonLin <- function(Y,
         custom_indicator = custom_indicator, aggregate_to = aggregate_to,
         var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol_mse,
         select.indicator = select.indicator,
-        dedup_by = dedup_by), dots))[[1]][, -1]
+        dedup_by = dedup_by, K_fixed = K_fixed), dots))[[1]][, -1]
     }
   }
 
@@ -171,7 +172,7 @@ MSE_SAEforest_nonLin <- function(Y,
         custom_indicator = custom_indicator, aggregate_to = aggregate_to,
         var.adjust = var.adjust, B_adj = B_adj, adj_tol = adj_tol_mse,
         transformation = transformation, select.indicator = select.indicator,
-        dedup_by = dedup_by), dots))[[1]][, -1]
+        dedup_by = dedup_by, K_fixed = K_fixed), dots))[[1]][, -1]
     }
   }
 

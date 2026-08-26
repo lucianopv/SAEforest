@@ -148,6 +148,17 @@
 #' prediction and validated at entry; the run stops if any covariate varies
 #' within a level. Only supported on the unit-level non-linear path. Defaults
 #' to \code{NULL} (no deduplication).
+#' @param adjust_mse Either \code{"refit"} (default: every MSE bootstrap
+#' replicate re-estimates the Mendez-Lohr bias term K with \code{B_adj} inner
+#' forests per EM iteration -- the behaviour matching Krennmair et al.'s
+#' implementation) or \code{"plugin"} (replicates receive the point fit's
+#' per-iteration K values fixed, removing the inner bootstrap from every
+#' replicate). Plugin is a computational approximation: the reported MSE no
+#' longer propagates K's sampling variability (a second-order term). Requires
+#' \code{var.adjust = TRUE} and \code{MSE != "none"}. Note the plugin path
+#' consumes no RNG inside the adjustment, so its replicate streams (and hence
+#' MSE estimates) differ from refit ones beyond the omitted term alone; seeded
+#' runs remain exactly reproducible.
 #'
 #' @return An object of class \code{SAEforest} includes point estimates for disaggregated indicators
 #' as well as information on the MERF-model. Optionally corresponding MSE estimates are returned.
@@ -301,6 +312,7 @@ SAEforest_model <- function(Y,
                             worker.threads = 1L,
                             n_smear_residuals = NULL,
                             dedup_by = NULL,
+                            adjust_mse = "refit",
                             ...) {
 
   input_checks_model(
@@ -335,6 +347,21 @@ SAEforest_model <- function(Y,
   if (!is.null(dedup_by) && (isTRUE(meanOnly) || isTRUE(aggData))) {
     stop("dedup_by is only supported on the unit-level non-linear path ",
          "(meanOnly = FALSE, aggData = FALSE).")
+  }
+
+  adjust_mse <- match.arg(adjust_mse, c("refit", "plugin"))
+  if (adjust_mse == "plugin") {
+    if (!isTRUE(var.adjust)) {
+      stop("adjust_mse = 'plugin' requires var.adjust = TRUE.")
+    }
+    if (identical(MSE, "none")) {
+      stop("adjust_mse = 'plugin' has no effect without MSE estimation ",
+           "(MSE = 'none'); leave adjust_mse = 'refit'.")
+    }
+    if (isTRUE(meanOnly) || isTRUE(aggData)) {
+      stop("adjust_mse = 'plugin' is only supported on the unit-level ",
+           "non-linear path.")
+    }
   }
 
   if (meanOnly == TRUE || aggData == TRUE) {
@@ -400,6 +427,7 @@ SAEforest_model <- function(Y,
       worker.threads = worker.threads,
       n_smear_residuals = n_smear_residuals,
       dedup_by = dedup_by,
+      adjust_mse = adjust_mse,
       ...
     )
 

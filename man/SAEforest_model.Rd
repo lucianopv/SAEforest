@@ -40,6 +40,7 @@ SAEforest_model(
   worker.threads = 1L,
   n_smear_residuals = NULL,
   dedup_by = NULL,
+  adjust_mse = "refit",
   ...
 )
 }
@@ -208,6 +209,18 @@ then computed once per level and expanded -- byte-identical to full-row
 prediction and validated at entry; the run stops if any covariate varies
 within a level. Only supported on the unit-level non-linear path. Defaults
 to \code{NULL} (no deduplication).}
+
+\item{adjust_mse}{Either \code{"refit"} (default: every MSE bootstrap
+replicate re-estimates the Mendez-Lohr bias term K with \code{B_adj} inner
+forests per EM iteration -- the behaviour matching Krennmair et al.'s
+implementation) or \code{"plugin"} (replicates receive the point fit's
+per-iteration K values fixed, removing the inner bootstrap from every
+replicate). Plugin is a computational approximation: the reported MSE no
+longer propagates K's sampling variability (a second-order term). Requires
+\code{var.adjust = TRUE} and \code{MSE != "none"}. Note the plugin path
+consumes no RNG inside the adjustment, so its replicate streams (and hence
+MSE estimates) differ from refit ones beyond the omitted term alone; seeded
+runs remain exactly reproducible.}
 
 \item{...}{Additional parameters are directly passed to the random forest \link[ranger]{ranger}.
 Most important parameters are for instance \code{mtry} (number of variables to possibly split at

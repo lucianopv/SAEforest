@@ -81,6 +81,7 @@ point_nonLin <- function(Y,
                          cores = 1,
                          n_smear_residuals = NULL,
                          dedup_by = NULL,
+                         K_fixed = NULL,
                          ...) {
 
   transformation <- match.arg(transformation, c("none", "log"))
@@ -112,6 +113,7 @@ point_nonLin <- function(Y,
     var.adjust = var.adjust,
     B_adj = B_adj,
     adj_tol = adj_tol,
+    K_fixed = K_fixed,
     ...
   )
 
@@ -400,6 +402,7 @@ point_MC_nonLin <- function(Y,
                             adj_tol = 0,
                             select.indicator = NULL,
                             dedup_by = NULL,
+                            K_fixed = NULL,
                             ...) {
 
   domains <- names(table(pop_data[[dName]]))
@@ -426,6 +429,7 @@ point_MC_nonLin <- function(Y,
     var.adjust = var.adjust,
     B_adj = B_adj,
     adj_tol = adj_tol,
+    K_fixed = K_fixed,
     ...
   )
 
