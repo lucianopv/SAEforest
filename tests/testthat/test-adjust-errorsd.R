@@ -104,6 +104,36 @@ test_that("adaptive path keeps K finite when inner forests miss OOB predictions"
   expect_gte(res$K, 0)
 })
 
+# --- Missing OOB prediction in the MAIN forest -------------------------------
+# The counterpart failure to the block above, observed for real: GridSAE
+# merf_coarse task 1443 (Distrito / merf_unrestricted / cons / district fold 59,
+# seed 511100059) hit an observation that was in-bag in every one of the EM
+# forest's 50 trees, so ranger's OOB prediction for it is NaN (0/0). The
+# residual pool already drops it (e_ij[is.finite(e_ij)]) and the output gaps are
+# na.rm'd, but y_star_b was built from the RAW rf$predictions -- the one NaN
+# cell poisons the synthetic response and every inner forest dies with ranger's
+# "Missing data in dependent variable.".
+
+test_that("legacy path survives a NaN OOB prediction in the main forest", {
+  d <- tiny_saef_data(); rf <- fit_rf(d)
+  rf$predictions[3] <- NaN   # in-bag in every tree: ranger's 0/0 OOB cell
+  set.seed(21)
+  res <- adjust_ErrorSD_(Y = d$Y, X = d$X, smp_data = d$smp, rf = rf,
+                         B = 4, adj_tol = 0, num.trees = 50)
+  expect_true(is.finite(res$K))
+  expect_gte(res$K, 0)
+})
+
+test_that("adaptive path survives a NaN OOB prediction in the main forest", {
+  d <- tiny_saef_data(); rf <- fit_rf(d)
+  rf$predictions[3] <- NaN
+  set.seed(22)
+  res <- adjust_ErrorSD_(Y = d$Y, X = d$X, smp_data = d$smp, rf = rf,
+                         B = 25, adj_tol = 0.05, num.trees = 50)
+  expect_true(is.finite(res$K))
+  expect_gte(res$K, 0)
+})
+
 test_that("a residual pool with no finite entries is reported, not silently averaged", {
   # If EVERY residual is missing, dropping NAs would leave nothing to average and
   # K would come back NaN -- which would resurface as the same if(NA) failure one

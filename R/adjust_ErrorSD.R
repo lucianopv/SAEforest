@@ -46,7 +46,6 @@ adjust_ErrorSD <- function(Y, X, smp_data, mod, B = 100, ...) {
 # so every refit is reproducible run-to-run yet distinct across bootstrap replicates.
 adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
   if (is.null(adj_tol)) adj_tol <- 0
-  n <- length(rf$predictions)
 
   # centred OOB residuals (paper step 3a) — RNG-free, shared by both paths.
   # ranger returns NA for an observation that happens to be in-bag in EVERY tree,
@@ -62,12 +61,26 @@ adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
   }
   e_ij <- e_ij - mean(e_ij)
 
+  # A row whose OOB prediction is itself missing (in-bag in every tree -> 0/0
+  # NaN) cannot anchor a synthetic response: one such cell poisons y_star_b and
+  # every inner forest dies with ranger's "Missing data in dependent variable."
+  # (observed for real: GridSAE merf_coarse task 1443, seed 511100059).
+  # Restrict the inner bootstrap to rows with a finite OOB prediction -- the
+  # same drop the residual pool above already applies, and the same estimand
+  # argument: a row with no OOB prediction carries no information about the
+  # OOB gap. No-op (byte-identical, same RNG draws) when all rows are finite.
+  ok <- is.finite(rf$predictions)
+  pred_ok <- rf$predictions[ok]
+  n_ok <- length(pred_ok)
+  X_ok <- X[ok, , drop = FALSE]
+  smp_ok <- smp_data[ok, , drop = FALSE]
+
   if (adj_tol <= 0) {
     ## ---- legacy exact path: fixed B, vectorised ----
-    pred_OOB <- matrix(rf$predictions, ncol = B, nrow = n, byrow = FALSE)
+    pred_OOB <- matrix(pred_ok, ncol = B, nrow = n_ok, byrow = FALSE)
     y_star_OOB <- pred_OOB + sample(e_ij, size = length(pred_OOB), replace = TRUE)
     fits <- apply(y_star_OOB, 2, function(x) {
-      ranger::ranger(y = x, x = X, data = smp_data, ...)
+      ranger::ranger(y = x, x = X_ok, data = smp_ok, ...)
     })
     pred_OOB_star <- sapply(fits, function(x) x$predictions)
     # na.rm at BOTH levels: this matrix is n x B (1.3M cells in the GridSAE
@@ -88,9 +101,9 @@ adjust_ErrorSD_ <- function(Y, X, smp_data, rf, B = 100, adj_tol = 0, ...) {
   repeat {
     for (k in seq_len(B_BATCH)) {
       if (length(g) >= B) break
-      y_star_b <- rf$predictions + sample(e_ij, size = n, replace = TRUE)
-      fit_b <- ranger::ranger(y = y_star_b, x = X, data = smp_data, ...)
-      g <- c(g, mean((fit_b$predictions - rf$predictions)^2, na.rm = TRUE))
+      y_star_b <- pred_ok + sample(e_ij, size = n_ok, replace = TRUE)
+      fit_b <- ranger::ranger(y = y_star_b, x = X_ok, data = smp_ok, ...)
+      g <- c(g, mean((fit_b$predictions - pred_ok)^2, na.rm = TRUE))
     }
     Kbar   <- mean(g, na.rm = TRUE)
     # length(g) >= 2 guard: sd() of a length-1 vector is NA, which would make the
