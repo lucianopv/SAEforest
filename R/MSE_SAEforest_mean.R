@@ -104,10 +104,12 @@ MSE_SAEforest_mean <- function(Y,
 
   MSE_estimates <- rowMeans((tau_star - tau_b)^2)
 
+  # Labels must follow the value ordering (tapply/table level order), not
+  # pop_data's row order -- see labelsInValueOrder().
   if(is.null(aggregate_to)){
-  MSE_estimates <- data.frame(unique(pop_data[dName]), Mean = MSE_estimates)
+  MSE_estimates <- data.frame(labelsInValueOrder(pop_data, dName), Mean = MSE_estimates)
   } else{
-   MSE_estimates <- data.frame(unique(pop_data[aggregate_to]), Mean = MSE_estimates)
+   MSE_estimates <- data.frame(labelsInValueOrder(pop_data, aggregate_to), Mean = MSE_estimates)
   }
   rownames(MSE_estimates) <- NULL
 

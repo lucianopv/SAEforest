@@ -285,6 +285,31 @@ get_thresh <- function(x, threshold) {
 
 
 # Sort and process final function outputs -------------------------------------------------
+# Domain labels for an aggregated result table, in the SAME order as the values.
+#
+# Aggregated values are produced by tapply()/table() over `col`, which order by
+# factor level (i.e. sorted, for a character column). The label column used to
+# be taken from unique(pop_data[col]), which is in FIRST-APPEARANCE order.
+# Those two orders coincide only when pop_data is already ordered by `col` --
+# true for the dName branch (pop_data is sorted by dName before aggregation)
+# and for a coarser aggregate_to whose grouping the dName sort happens to
+# respect, but NOT in general, and specifically not when aggregate_to is finer
+# than dName. Where they diverged, every row's label was stapled to another
+# domain's value, and sortAlpha() then locked the mispairing in by sorting on
+# the wrong label.
+#
+# Returns the unique rows of pop_data[col] reordered onto the value ordering.
+# A no-op (identity permutation) whenever the two orders already agree, so
+# every previously-correct call is byte-identical. Type of `col` is preserved.
+labelsInValueOrder <- function(pop_data, col) {
+  u <- unique(pop_data[col])
+  lev <- names(table(pop_data[[col]]))
+  out <- u[match(lev, as.character(u[[col]])), , drop = FALSE]
+  rownames(out) <- NULL
+  out
+}
+
+
 sortAlpha <- function(x, dName) {
   orderIndicat <- order(as.character(x[[dName]]))
   return_val <- x[orderIndicat, ]

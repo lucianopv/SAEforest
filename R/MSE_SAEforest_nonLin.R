@@ -225,11 +225,13 @@ MSE_SAEforest_nonLin <- function(Y,
   mse_col_names <- colnames(MSE_estimates)
   if (is.null(mse_col_names)) mse_col_names <- select.indicator
 
+  # Labels must follow the value ordering (tapply/table level order), not
+  # pop_data's row order -- see labelsInValueOrder().
   if(is.null(aggregate_to)){
-    MSE_estimates_out <- data.frame(unique(pop_data[dName]), MSE_estimates)
+    MSE_estimates_out <- data.frame(labelsInValueOrder(pop_data, dName), MSE_estimates)
     colnames(MSE_estimates_out) <- c(dName, mse_col_names)
   } else{
-    MSE_estimates_out <- data.frame(unique(pop_data[aggregate_to]), MSE_estimates)
+    MSE_estimates_out <- data.frame(labelsInValueOrder(pop_data, aggregate_to), MSE_estimates)
     colnames(MSE_estimates_out) <- c(aggregate_to, mse_col_names)
   }
 
