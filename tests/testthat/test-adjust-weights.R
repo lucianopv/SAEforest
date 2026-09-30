@@ -1,0 +1,101 @@
+# Fixed-weight variance bias correction (Mendez & Lohr 2011, Procedure 2),
+# opt-in via MERFranger(var.adjust = TRUE, adjust_method = "weights").
+
+make_toy <- function(n = 120, D = 6, seed = 1) {
+  set.seed(seed)
+  area <- factor(rep(seq_len(D), each = n / D))
+  x1 <- rnorm(n); x2 <- rnorm(n)
+  v <- rnorm(D, 0, 0.5)[as.integer(area)]
+  y <- 2 * x1 + x2^2 + v + rnorm(n, 0, 1)
+  list(Y = y, X = data.frame(x1 = x1, x2 = x2),
+       data = data.frame(area = area, x1 = x1, x2 = x2, y = y))
+}
+
+test_that("the weight matrix reproduces ranger's own OOB predictions", {
+  d <- make_toy()
+  rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 200, min.node.size = 5,
+                       keep.inbag = TRUE, seed = 7, num.threads = 1)
+  W <- oob_weight_matrix_(rf, d$X)
+  ok <- attr(W, "n_oob") > 0 & is.finite(rf$predictions)
+
+  # This is the property the whole procedure rests on: the forest IS this matrix.
+  expect_equal(as.vector(W %*% d$Y)[ok], rf$predictions[ok], tolerance = 1e-10)
+  expect_equal(rowSums(W)[ok], rep(1, sum(ok)), tolerance = 1e-10)
+  expect_true(all(diag(W) == 0))          # never predicts itself
+  expect_true(all(W >= 0))
+})
+
+test_that("a forest without keep.inbag is refused rather than guessed at", {
+  d <- make_toy()
+  rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 50, seed = 7, num.threads = 1)
+  expect_error(oob_weight_matrix_(rf, d$X), "keep.inbag")
+})
+
+test_that("K from fixed weights is finite, positive and below the refit K", {
+  d <- make_toy()
+  rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 200, min.node.size = 5,
+                       keep.inbag = TRUE, seed = 7, num.threads = 1)
+  set.seed(11)
+  kw <- adjust_ErrorSD_weights_(Y = d$Y, X = d$X, rf = rf, B = 30)
+  set.seed(11)
+  kr <- adjust_ErrorSD_(Y = d$Y, X = d$X, smp_data = d$data, rf = rf, B = 30,
+                        adj_tol = 0, num.trees = 200, min.node.size = 5,
+                        num.threads = 1)
+
+  expect_true(is.finite(kw$K) && kw$K > 0)
+  expect_identical(kw$m, 30L)
+  # The paper's point: refitting a forest per draw overcorrects relative to
+  # holding the weights fixed.
+  expect_lt(kw$K, kr$K)
+})
+
+test_that("MERFranger runs the weights route and leaves the default alone", {
+  d <- make_toy()
+  common <- list(Y = d$Y, X = d$X, random = "(1|area)", data = d$data,
+                 num.trees = 100, min.node.size = 5, num.threads = 1, seed = 3)
+
+  m_ref <- do.call(MERFranger, c(common, list(var.adjust = TRUE, B_adj = 10, adj_tol = 0)))
+  m_wts <- do.call(MERFranger, c(common, list(var.adjust = TRUE, B_adj = 10,
+                                              adjust_method = "weights")))
+
+  expect_s3_class(m_wts, "MERFranger")
+  expect_true(all(is.finite(unlist(m_wts$K))))
+  expect_true(is.finite(m_wts$ErrorSD) && m_wts$ErrorSD > 0)
+  # Same estimand, different route: the answers should differ but stay comparable.
+  expect_false(isTRUE(all.equal(unlist(m_ref$K), unlist(m_wts$K))))
+  expect_equal(m_wts$ErrorSD, m_ref$ErrorSD, tolerance = 0.5)
+
+  # keep.inbag is switched on for this route, and only this route.
+  expect_false(is.null(m_wts$Forest$inbag.counts))
+  expect_true(is.null(m_ref$Forest$inbag.counts))
+})
+
+test_that("the weights route is refused where it would be meaningless", {
+  d <- make_toy()
+  common <- list(Y = d$Y, X = d$X, random = "(1|area)", data = d$data,
+                 num.trees = 50, num.threads = 1)
+
+  expect_error(
+    do.call(MERFranger, c(common, list(var.adjust = FALSE, adjust_method = "weights"))),
+    "requires var.adjust = TRUE")
+  expect_error(
+    do.call(MERFranger, c(common, list(var.adjust = TRUE, adjust_method = "weights",
+                                       K_fixed = 0.1))),
+    "cannot be combined with K_fixed")
+  expect_error(
+    do.call(MERFranger, c(common, list(var.adjust = TRUE, adjust_method = "weights",
+                                       keep.inbag = FALSE))),
+    "keep.inbag = TRUE")
+})
+
+test_that("var.adjust = FALSE is untouched by the new argument", {
+  d <- make_toy()
+  common <- list(Y = d$Y, X = d$X, random = "(1|area)", data = d$data,
+                 num.trees = 100, min.node.size = 5, num.threads = 1, seed = 5)
+  a <- do.call(MERFranger, c(common, list(var.adjust = FALSE)))
+  b <- do.call(MERFranger, c(common, list(var.adjust = FALSE, adjust_method = "refit")))
+  expect_equal(a$ErrorSD, b$ErrorSD)
+  expect_equal(a$RanEffSD, b$RanEffSD)
+  expect_equal(unname(predict(a$Forest, d$X)$predictions),
+               unname(predict(b$Forest, d$X)$predictions))
+})

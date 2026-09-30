@@ -31,6 +31,14 @@
 #' object additionally carries \code{K}, \code{sigma_e}, \code{sigma_u}, \code{RanEffSD_unadj},
 #' \code{ErrorSD_unadj}, and \code{sd_Mendez_Lohr_naive_unad}. Defaults to \code{FALSE}, which
 #' reproduces the original, unadjusted MERF algorithm exactly.
+#' @param adjust_method Character. How the bias correction \code{K} is computed when
+#' \code{var.adjust = TRUE}. \code{"refit"} (default) follows Krennmair & Schmid (2022),
+#' refitting a random forest for every bootstrap draw, and is byte-identical to previous
+#' behaviour. \code{"weights"} follows Mendez & Lohr (2011, Procedure 2): the forest's
+#' out-of-bag weight matrix is held fixed and no new trees are grown, which is the variant
+#' those authors validate and which they report the refitting version can overcorrect.
+#' The forest is then grown with \code{keep.inbag = TRUE} automatically. Dense in memory,
+#' so \code{O(n^2)}; intended for moderate \code{n}.
 #' @param B_adj Numeric value specifying the number of bootstrap replicates used within the
 #' variance bias correction when \code{var.adjust = TRUE}. Defaults to 100. Ignored when
 #' \code{var.adjust = FALSE}.
@@ -145,9 +153,11 @@ MERFranger <- function(Y, X, random, data,
                        var.adjust = FALSE,
                        B_adj = 100,
                        adj_tol = 0.05,
+                       adjust_method = c("refit", "weights"),
                        K_fixed = NULL,
                        seed = NULL,
                        ...) {
+  adjust_method <- match.arg(adjust_method)
 
   if (na.rm == TRUE) {
     comp_smp <- complete.cases(data)
@@ -165,6 +175,20 @@ MERFranger <- function(Y, X, random, data,
   if (isTRUE(var.adjust) &&
       !(is.numeric(B_adj) && length(B_adj) == 1 && !is.na(B_adj) && B_adj >= 1)) {
     stop("When var.adjust = TRUE, B_adj must be a single numeric value >= 1.")
+  }
+
+  if (identical(adjust_method, "weights") && !isTRUE(var.adjust)) {
+    stop('adjust_method = "weights" requires var.adjust = TRUE.')
+  }
+
+  if (identical(adjust_method, "weights") && !is.null(K_fixed)) {
+    stop('adjust_method = "weights" cannot be combined with K_fixed.')
+  }
+
+  if (identical(adjust_method, "weights") &&
+      "keep.inbag" %in% names(list(...)) && !isTRUE(list(...)$keep.inbag)) {
+    stop('adjust_method = "weights" needs keep.inbag = TRUE; it is set ',
+         "automatically, so pass either nothing or keep.inbag = TRUE.")
   }
 
   if (!is.null(K_fixed)) {
@@ -189,7 +213,15 @@ MERFranger <- function(Y, X, random, data,
 
   while (ContinueCondition) {
     iterations <- iterations + 1
-    rf <- ranger::ranger(x = X, y = AdjustedTarget, importance = importance, ...)
+    rf <- if (identical(adjust_method, "weights") &&
+              !("keep.inbag" %in% names(list(...)))) {
+      # The weights are read off the bootstrap multiplicities, which ranger only
+      # records when asked. Added here rather than pushed onto the user.
+      ranger::ranger(x = X, y = AdjustedTarget, importance = importance,
+                     keep.inbag = TRUE, ...)
+    } else {
+      ranger::ranger(x = X, y = AdjustedTarget, importance = importance, ...)
+    }
     forest_preds <- rf$predictions
 
     if (!var.adjust) {
@@ -212,10 +244,17 @@ MERFranger <- function(Y, X, random, data,
       naive_unadj <- sd(Target - forest_preds, na.rm = TRUE)
 
       if (is.null(K_fixed)) {
-        res_K <- adjust_ErrorSD_(
-          Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
-          B = B_adj, adj_tol = adj_tol, ...
-        )
+        res_K <- if (identical(adjust_method, "weights")) {
+          # Mendez & Lohr Procedure 2: reuse this forest's weights, grow nothing.
+          adjust_ErrorSD_weights_(
+            Y = AdjustedTarget, X = X, rf = rf, B = B_adj
+          )
+        } else {
+          adjust_ErrorSD_(
+            Y = AdjustedTarget, X = X, smp_data = data, rf = rf,
+            B = B_adj, adj_tol = adj_tol, ...
+          )
+        }
         K <- res_K$K
         # K_list deliberately records the RAW estimate (pre !is.finite defence
         # below); sanitize_K_fixed() relies on this ordering when plugging

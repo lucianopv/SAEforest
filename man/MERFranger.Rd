@@ -17,6 +17,7 @@ MERFranger(
   var.adjust = FALSE,
   B_adj = 100,
   adj_tol = 0.05,
+  adjust_method = c("refit", "weights"),
   K_fixed = NULL,
   seed = NULL,
   ...
@@ -65,6 +66,15 @@ once \code{sd(g)/sqrt(m)/mean(g) < adj_tol} (after at least \code{min(20, B_adj)
 forests, capped at \code{B_adj}). \code{adj_tol = 0} (or \code{NULL}) disables early-stopping and
 always fits the full \code{B_adj} replicates. Defaults to \code{0.05}. Ignored when
 \code{var.adjust = FALSE}.}
+
+\item{adjust_method}{Character. How the bias correction \code{K} is computed when
+\code{var.adjust = TRUE}. \code{"refit"} (default) follows Krennmair & Schmid (2022),
+refitting a random forest for every bootstrap draw, and is byte-identical to previous
+behaviour. \code{"weights"} follows Mendez & Lohr (2011, Procedure 2): the forest's
+out-of-bag weight matrix is held fixed and no new trees are grown, which is the variant
+those authors validate and which they report the refitting version can overcorrect.
+The forest is then grown with \code{keep.inbag = TRUE} automatically. Dense in memory,
+so \code{O(n^2)}; intended for moderate \code{n}.}
 
 \item{K_fixed}{Optional finite numeric vector of per-iteration bias terms.
 When supplied (requires \code{var.adjust = TRUE}), iteration \code{i} uses
