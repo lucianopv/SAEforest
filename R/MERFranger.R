@@ -247,7 +247,8 @@ MERFranger <- function(Y, X, random, data,
         res_K <- if (identical(adjust_method, "weights")) {
           # Mendez & Lohr Procedure 2: reuse this forest's weights, grow nothing.
           adjust_ErrorSD_weights_(
-            Y = AdjustedTarget, X = X, rf = rf, B = B_adj
+            Y = AdjustedTarget, X = X, rf = rf, B = B_adj,
+            num.threads = if ("num.threads" %in% names(list(...))) list(...)$num.threads else 1
           )
         } else {
           adjust_ErrorSD_(

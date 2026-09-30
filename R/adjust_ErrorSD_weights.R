@@ -36,12 +36,17 @@
 # Memory note: dense, hence O(n^2). Fine for the simulation sizes this was
 # written for (n ~ 1e3); a sparse representation would be needed before this
 # could run at GridSAE's n ~ 1.3e4.
-oob_weight_matrix_ <- function(rf, X) {
+oob_weight_matrix_ <- function(rf, X, num.threads = 1) {
   if (is.null(rf$inbag.counts)) {
     stop("oob_weight_matrix_: the forest was grown without keep.inbag = TRUE, ",
          "so the bootstrap multiplicities needed for the weights are unavailable.")
   }
-  nodes <- stats::predict(rf, X, type = "terminalNodes")$predictions
+  # num.threads is pinned: predict.ranger defaults to NULL, which ranger reads as
+  # "use every core". Inside a forked worker (the MSE bootstrap, or any parallel
+  # driver) that oversubscribes the machine, so the caller's threading choice is
+  # honoured instead, defaulting to serial.
+  nodes <- stats::predict(rf, X, type = "terminalNodes",
+                          num.threads = num.threads)$predictions
   inbag <- do.call(cbind, rf$inbag.counts)
   n <- nrow(nodes)
   W <- matrix(0, n, n)
@@ -78,11 +83,11 @@ oob_weight_matrix_ <- function(rf, X) {
 # No seed argument, for the same reason as adjust_ErrorSD_(): it inherits the
 # stream seeded once by the caller. It consumes less RNG than the refit route
 # (n * B draws and no forests), so the two routes' streams differ by design.
-adjust_ErrorSD_weights_ <- function(Y, X, rf, B = 100) {
+adjust_ErrorSD_weights_ <- function(Y, X, rf, B = 100, num.threads = 1) {
   if (!(is.numeric(B) && length(B) == 1 && !is.na(B) && B >= 1)) {
     stop("adjust_ErrorSD_weights_: B must be a single numeric value >= 1.")
   }
-  W <- oob_weight_matrix_(rf, X)
+  W <- oob_weight_matrix_(rf, X, num.threads = num.threads)
   ok <- attr(W, "n_oob") > 0 & is.finite(rf$predictions)
   if (!any(ok)) {
     stop("adjust_ErrorSD_weights_: no out-of-bag predictions to work from ",
