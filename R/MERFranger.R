@@ -177,13 +177,20 @@ MERFranger <- function(Y, X, random, data,
     stop("When var.adjust = TRUE, B_adj must be a single numeric value >= 1.")
   }
 
-  if (identical(adjust_method, "weights") && !isTRUE(var.adjust)) {
-    stop('adjust_method = "weights" requires var.adjust = TRUE.')
-  }
+  # adjust_method is only meaningful when the correction runs at all. It is
+  # IGNORED rather than rejected when var.adjust = FALSE, matching how B_adj and
+  # adj_tol behave -- and necessarily so: point_mean() and the aggregated-data
+  # path call MERFranger without var.adjust while forwarding their dots, so a
+  # SAEforest_model(var.adjust = TRUE, adjust_method = "weights") call reaches
+  # them carrying adjust_method but not var.adjust. Erroring here made the whole
+  # MSE path unusable with this route.
+  if (!isTRUE(var.adjust)) adjust_method <- "refit"
 
-  if (identical(adjust_method, "weights") && !is.null(K_fixed)) {
-    stop('adjust_method = "weights" cannot be combined with K_fixed.')
-  }
+  # Same reasoning for the plugin path: K_fixed means K is not estimated at all
+  # in this fit, so how it WOULD have been estimated is moot. Erroring here would
+  # make adjust_mse = "plugin" unusable with this route, which is precisely the
+  # configuration the MSE bootstrap needs to stay affordable.
+  if (!is.null(K_fixed)) adjust_method <- "refit"
 
   if (identical(adjust_method, "weights") &&
       "keep.inbag" %in% names(list(...)) && !isTRUE(list(...)$keep.inbag)) {

@@ -75,13 +75,17 @@ test_that("the weights route is refused where it would be meaningless", {
   common <- list(Y = d$Y, X = d$X, random = "(1|area)", data = d$data,
                  num.trees = 50, num.threads = 1)
 
-  expect_error(
-    do.call(MERFranger, c(common, list(var.adjust = FALSE, adjust_method = "weights"))),
-    "requires var.adjust = TRUE")
-  expect_error(
-    do.call(MERFranger, c(common, list(var.adjust = TRUE, adjust_method = "weights",
-                                       K_fixed = 0.1))),
-    "cannot be combined with K_fixed")
+  # Ignored, not rejected, when there is no correction to compute: wrappers such
+  # as point_mean() forward their dots to MERFranger without var.adjust.
+  m <- do.call(MERFranger, c(common, list(var.adjust = FALSE, adjust_method = "weights")))
+  expect_s3_class(m, "MERFranger")
+  expect_true(is.null(m$Forest$inbag.counts))   # the refit path, so no inbag kept
+  # K_fixed means K is not estimated here at all, so adjust_method is moot and
+  # ignored -- adjust_mse = "plugin" forwards both.
+  m_plug <- do.call(MERFranger, c(common, list(var.adjust = TRUE, B_adj = 5,
+                                               adjust_method = "weights", K_fixed = 0.1)))
+  expect_s3_class(m_plug, "MERFranger")
+  expect_equal(unlist(m_plug$K)[[1]], 0.1)
   expect_error(
     do.call(MERFranger, c(common, list(var.adjust = TRUE, adjust_method = "weights",
                                        keep.inbag = FALSE))),
