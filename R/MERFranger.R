@@ -39,6 +39,14 @@
 #' those authors validate and which they report the refitting version can overcorrect.
 #' The forest is then grown with \code{keep.inbag = TRUE} automatically. Dense in memory,
 #' so \code{O(n^2)}; intended for moderate \code{n}.
+#' @param re_method Character. How the random-effects step sees the forest.
+#' \code{"insample"} (default) uses the forest's own out-of-bag predictions and is
+#' byte-identical to previous behaviour. \code{"crossfit"} refits the forest on
+#' other areas and predicts each area from a model that never saw it, which stops a
+#' flexible learner from absorbing the area effect through area-constant covariates.
+#' Costs \code{re_folds} extra forest fits per iteration.
+#' @param re_folds Number of area folds used when \code{re_method = "crossfit"}.
+#' Defaults to 5.
 #' @param B_adj Numeric value specifying the number of bootstrap replicates used within the
 #' variance bias correction when \code{var.adjust = TRUE}. Defaults to 100. Ignored when
 #' \code{var.adjust = FALSE}.
@@ -154,10 +162,13 @@ MERFranger <- function(Y, X, random, data,
                        B_adj = 100,
                        adj_tol = 0.05,
                        adjust_method = c("refit", "weights"),
+                       re_method = c("insample", "crossfit"),
+                       re_folds = 5L,
                        K_fixed = NULL,
                        seed = NULL,
                        ...) {
   adjust_method <- match.arg(adjust_method)
+  re_method <- match.arg(re_method)
 
   if (na.rm == TRUE) {
     comp_smp <- complete.cases(data)
@@ -198,6 +209,11 @@ MERFranger <- function(Y, X, random, data,
          "automatically, so pass either nothing or keep.inbag = TRUE.")
   }
 
+  if (identical(re_method, "crossfit") &&
+      !(is.numeric(re_folds) && length(re_folds) == 1 && re_folds >= 2)) {
+    stop('re_method = "crossfit" needs re_folds to be a single number >= 2.')
+  }
+
   if (!is.null(K_fixed)) {
     if (!isTRUE(var.adjust)) {
       stop("K_fixed requires var.adjust = TRUE.")
@@ -230,6 +246,31 @@ MERFranger <- function(Y, X, random, data,
       ranger::ranger(x = X, y = AdjustedTarget, importance = importance, ...)
     }
     forest_preds <- rf$predictions
+
+    # Cross-fitting by AREA. The random-effect step is the only consumer of
+    # forest_preds, and out-of-bag is not enough for it: an observation held out
+    # of a tree is still predicted from its neighbours in the same area, so a
+    # forest that can identify the area from area-constant covariates reproduces
+    # the area effect anyway and the variance step sees nothing left to explain
+    # (absorption; simulations/PREDICTION_crossfit.md). Refitting on other areas
+    # removes that route. The returned forest is still the full-data one, so only
+    # the variance components and the BLUPs change.
+    if (identical(re_method, "crossfit")) {
+      grp <- grouping_factor_(data, random)
+      folds <- assign_area_folds_(grp, re_folds)
+      cf <- rep(NA_real_, length(AdjustedTarget))
+      for (k in sort(unique(folds))) {
+        hold <- folds[as.character(grp)] == k
+        if (all(hold) || !any(hold)) next
+        rf_k <- ranger::ranger(x = X[!hold, , drop = FALSE],
+                               y = AdjustedTarget[!hold],
+                               importance = "none", ...)
+        cf[hold] <- stats::predict(rf_k, X[hold, , drop = FALSE],
+                                   num.threads = dots_threads_(...))$predictions
+      }
+      # Any observation the folding could not cover keeps its OOB prediction.
+      forest_preds <- ifelse(is.finite(cf), cf, forest_preds)
+    }
 
     if (!var.adjust) {
       ## ---- upstream path (KEEP byte-identical for parity) ----

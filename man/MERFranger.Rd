@@ -18,6 +18,8 @@ MERFranger(
   B_adj = 100,
   adj_tol = 0.05,
   adjust_method = c("refit", "weights"),
+  re_method = c("insample", "crossfit"),
+  re_folds = 5L,
   K_fixed = NULL,
   seed = NULL,
   ...
@@ -75,6 +77,16 @@ out-of-bag weight matrix is held fixed and no new trees are grown, which is the 
 those authors validate and which they report the refitting version can overcorrect.
 The forest is then grown with \code{keep.inbag = TRUE} automatically. Dense in memory,
 so \code{O(n^2)}; intended for moderate \code{n}.}
+
+\item{re_method}{Character. How the random-effects step sees the forest.
+\code{"insample"} (default) uses the forest's own out-of-bag predictions and is
+byte-identical to previous behaviour. \code{"crossfit"} refits the forest on
+other areas and predicts each area from a model that never saw it, which stops a
+flexible learner from absorbing the area effect through area-constant covariates.
+Costs \code{re_folds} extra forest fits per iteration.}
+
+\item{re_folds}{Number of area folds used when \code{re_method = "crossfit"}.
+Defaults to 5.}
 
 \item{K_fixed}{Optional finite numeric vector of per-iteration bias terms.
 When supplied (requires \code{var.adjust = TRUE}), iteration \code{i} uses
