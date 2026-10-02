@@ -350,7 +350,28 @@ MERFranger <- function(Y, X, random, data,
   }
 
   data$forest_preds <- NULL
-  residuals <- if (!var.adjust) Target - predict(lmefit) else r_ij_new - AllEffects
+  # OOBresiduals is the pool the smearing point estimator draws from
+  # (pointestim_wrapper.R), so it must represent the UNIT-LEVEL error, which has
+  # mean zero. On the upstream path that holds automatically: predict(lmefit)
+  # carries the forest_preds offset, so Target - predict(lmefit) is already
+  # centred. On the variance-adjusted path it does NOT. r_ij_new is centred, but
+  # AllEffects is the per-OBSERVATION random effect, and lme4's intercepts sum to
+  # zero over DOMAINS, not over observations. With unbalanced domains the
+  # observation-weighted BLUP mean is non-zero whenever domain size correlates
+  # with the domain effect, and that mean lands in the pool as a pure level
+  # error in every indicator computed from it.
+  #
+  # Measured on GridSAE (localidade anchor, 709 domains, 1-555 households each,
+  # 2026-10-02): pool mean 0.00000 absorbed vs -0.10856 cross-fitted on the
+  # wealth index, which accounted for 96.8% of a -0.1122 shift in the district
+  # means; +0.01342 on log consumption. The bug needs sigma_v > 0 to bite, so it
+  # was invisible wherever the forest absorbed the random effect.
+  residuals <- if (!var.adjust) {
+    Target - predict(lmefit)
+  } else {
+    res_ij <- r_ij_new - AllEffects
+    res_ij - mean(res_ij, na.rm = TRUE)
+  }
 
   result <- list(
     Forest = rf,
