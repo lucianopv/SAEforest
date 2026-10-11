@@ -20,3 +20,4 @@ simulations/
 *.tar.gz
 src/*.o
 src/*.so
+notes/
