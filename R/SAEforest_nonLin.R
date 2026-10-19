@@ -117,6 +117,10 @@ SAEforest_nonLin <- function(Y,
       return(result)
     }
 
+    # the MSE stage works on the model's scale: under "log" the forest was fit to log(Y)
+    # (point_nonLin has already checked Y > 0)
+    Y_model <- if (transformation == "log") log(Y) else Y
+
     # MSE estimation
     if (MSE != "none") {
       if (isTRUE(var.adjust)) {
@@ -125,14 +129,14 @@ SAEforest_nonLin <- function(Y,
         adj_SD <- nonLin_preds[[2]]$ErrorSD
       } else {
         message("Error SD Bootstrap started:")
-        adj_SD <- adjust_ErrorSD(Y = Y, X = X, smp_data = smp_data, mod = nonLin_preds[[2]], B = B_adj, ...)
+        adj_SD <- adjust_ErrorSD(Y = Y_model, X = X, smp_data = smp_data, mod = nonLin_preds[[2]], B = B_adj, ...)
       }
       message(paste("MSE Bootstrap with", B, "rounds started:"))
     }
 
     if (MSE == "wild") {
       MSE_estims <- MSE_SAEforest_nonLin(
-        Y = Y,
+        Y = Y_model,
         X = X,
         mod = nonLin_preds[[2]],
         smp_data = smp_data,
@@ -176,7 +180,7 @@ SAEforest_nonLin <- function(Y,
 
     if (MSE == "nonparametric") {
       MSE_estims <- MSE_SAEforest_nonLin(
-        Y = Y,
+        Y = Y_model,
         X = X,
         mod = nonLin_preds[[2]],
         smp_data = smp_data,
