@@ -54,7 +54,7 @@ MERF algorithm. Defaults to 25.}
 \item{var.adjust}{Logical. If \code{TRUE}, applies a per-iteration variance bias correction
 (Krennmair et al., 2026) to the random-effects residuals before refitting, and the returned
 object additionally carries \code{K}, \code{sigma_e}, \code{sigma_u}, \code{RanEffSD_unadj},
-\code{ErrorSD_unadj}, and \code{sd_Mendez_Lohr_naive_unad}. Defaults to \code{FALSE}, which
+\code{ErrorSD_unadj}, \code{sd_Mendez_Lohr_naive_unad} and \code{clamped}. Defaults to \code{FALSE}, which
 reproduces the original, unadjusted MERF algorithm exactly.}
 
 \item{B_adj}{Numeric value specifying the number of bootstrap replicates used within the
@@ -138,6 +138,9 @@ reference model fitted on the uncorrected residuals.}
 fitted on the uncorrected residuals.}
 \item{\code{sd_Mendez_Lohr_naive_unad}}{Numeric naive residual standard deviation
 \code{sd(Target - forest_preds)} at the final iteration, before bias correction.}
+\item{\code{clamped}}{Integer number of EM iterations in which \code{K} exceeded the naive
+residual variance, so the adjusted SD was clamped to 0 (each one also raises a warning).
+0 when none.}
 }
 \description{
 This function enables the use of Mixed Effects Random Forests (MERFs) by effectively

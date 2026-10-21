@@ -29,7 +29,7 @@
 #' @param var.adjust Logical. If \code{TRUE}, applies a per-iteration variance bias correction
 #' (Krennmair et al., 2026) to the random-effects residuals before refitting, and the returned
 #' object additionally carries \code{K}, \code{sigma_e}, \code{sigma_u}, \code{RanEffSD_unadj},
-#' \code{ErrorSD_unadj}, and \code{sd_Mendez_Lohr_naive_unad}. Defaults to \code{FALSE}, which
+#' \code{ErrorSD_unadj}, \code{sd_Mendez_Lohr_naive_unad} and \code{clamped}. Defaults to \code{FALSE}, which
 #' reproduces the original, unadjusted MERF algorithm exactly.
 #' @param adjust_method Character. How the bias correction \code{K} is computed when
 #' \code{var.adjust = TRUE}. \code{"refit"} (default) follows Krennmair & Schmid (2022),
@@ -104,6 +104,9 @@
 #' fitted on the uncorrected residuals.}
 #' \item{\code{sd_Mendez_Lohr_naive_unad}}{Numeric naive residual standard deviation
 #' \code{sd(Target - forest_preds)} at the final iteration, before bias correction.}
+#' \item{\code{clamped}}{Integer number of EM iterations in which \code{K} exceeded the naive
+#' residual variance, so the adjusted SD was clamped to 0 (each one also raises a warning).
+#' 0 when none.}
 #'
 #' @details
 #' There exists a generic function for \code{predict} for objects obtained by \code{MERFranger}.
@@ -233,6 +236,7 @@ MERFranger <- function(Y, X, random, data,
 
   K_list <- list(); sigma_e <- list(); sigma_u <- list()
   r_ij_new <- NULL; naive_unadj <- NA_real_
+  clamped <- 0L   # EM iterations whose adjusted SD was clamped to 0
 
   while (ContinueCondition) {
     iterations <- iterations + 1
@@ -330,6 +334,7 @@ MERFranger <- function(Y, X, random, data,
         K <- 0
       }
       if (K > naive_unadj^2) {
+        clamped <- clamped + 1L
         warning("Variance bias correction K exceeds naive residual variance; ",
                 "clamping adjusted SD to 0 at iteration ", iterations, ".")
       }
@@ -339,7 +344,12 @@ MERFranger <- function(Y, X, random, data,
       lmefit <- lme4::lmer(as.formula(paste0("r_ij_new ~", random)),
                            data = data, REML = TRUE)
       newLogLik <- as.numeric(stats::logLik(lmefit))
-      ContinueCondition <- (abs(abs(newLogLik - oldLogLik[iterations]) / oldLogLik[iterations]) > ErrorTolerance &
+      # isTRUE: a clamped iteration hands lmer an all-zero response, for which
+      # lme4 returns logLik = +Inf (sigma 0, ranef 0). The clamped iteration's
+      # own check is Inf > tol and continues; the next one divides by that Inf,
+      # gets NaN, and `while (NA)` would throw. NaN now ends the loop on the
+      # fit just made. Elsewhere the comparison is never NA, so unchanged.
+      ContinueCondition <- (isTRUE(abs(abs(newLogLik - oldLogLik[iterations]) / oldLogLik[iterations]) > ErrorTolerance) &
                               iterations < MaxIterations)
       oldLogLik <- c(oldLogLik, newLogLik)
       AllEffects <- predict(lmefit) - lme4::fixef(lmefit)
@@ -403,6 +413,7 @@ MERFranger <- function(Y, X, random, data,
     result$RanEffSD_unadj <- as.data.frame(lme4::VarCorr(lmefit_))$sdcor[1]
     result$ErrorSD_unadj <- stats::sigma(lmefit_)
     result$sd_Mendez_Lohr_naive_unad <- naive_unadj
+    result$clamped <- clamped
   }
 
   class(result) <- "MERFranger"

@@ -1,15 +1,7 @@
 # Fixed-weight variance bias correction (Mendez & Lohr 2011, Procedure 2),
 # opt-in via MERFranger(var.adjust = TRUE, adjust_method = "weights").
 
-make_toy <- function(n = 120, D = 6, seed = 1) {
-  set.seed(seed)
-  area <- factor(rep(seq_len(D), each = n / D))
-  x1 <- rnorm(n); x2 <- rnorm(n)
-  v <- rnorm(D, 0, 0.5)[as.integer(area)]
-  y <- 2 * x1 + x2^2 + v + rnorm(n, 0, 1)
-  list(Y = y, X = data.frame(x1 = x1, x2 = x2),
-       data = data.frame(area = area, x1 = x1, x2 = x2, y = y))
-}
+# make_toy() lives in helper-fixtures.R (shared with test-MERFranger.R).
 
 test_that("the weight matrix reproduces ranger's own OOB predictions", {
   d <- make_toy()

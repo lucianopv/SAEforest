@@ -125,3 +125,43 @@ dense_K_reference <- function(Y, X, rf, B = 100, num.threads = 1) {
   }, numeric(1))
   list(K = mean(g), m = as.integer(B))
 }
+
+# Synthetic toy for the var.adjust routes: n units in D balanced areas, a
+# non-linear signal and an area effect. No real data involved.
+make_toy <- function(n = 120, D = 6, seed = 1) {
+  set.seed(seed)
+  area <- factor(rep(seq_len(D), each = n / D))
+  x1 <- rnorm(n); x2 <- rnorm(n)
+  v <- rnorm(D, 0, 0.5)[as.integer(area)]
+  y <- 2 * x1 + x2^2 + v + rnorm(n, 0, 1)
+  list(Y = y, X = data.frame(x1 = x1, x2 = x2),
+       data = data.frame(area = area, x1 = x1, x2 = x2, y = y))
+}
+
+# Non-degenerate var.adjust fits on make_toy(), one per route the study uses,
+# reduced to what an EM-loop or anchor change could move. Held against
+# fixtures/varadjust_fits_ref.rds (frozen at 3250638 by
+# make_varadjust_fits_reference.R): the degenerate-case guards must leave every
+# one of these fits byte-identical.
+varadjust_guard_fits <- function() {
+  d <- make_toy()
+  common <- list(Y = d$Y, X = d$X, random = "(1|area)", data = d$data,
+                 var.adjust = TRUE, num.threads = 1, seed = 3)
+  cfgs <- list(
+    weights  = list(adjust_method = "weights", B_adj = 10, num.trees = 100,
+                    min.node.size = 5),
+    refit    = list(B_adj = 5, adj_tol = 0, num.trees = 50),
+    plugin   = list(K_fixed = c(0.4, 0.3), num.trees = 50),
+    crossfit = list(adjust_method = "weights", re_method = "crossfit",
+                    re_folds = 3, B_adj = 10, num.trees = 50)
+  )
+  lapply(cfgs, function(cfg) {
+    m <- do.call(MERFranger, c(common, cfg))
+    list(K = m$K, sigma_e = m$sigma_e, sigma_u = m$sigma_u, LogLik = m$LogLik,
+         IterationsUsed = m$IterationsUsed, ErrorSD = m$ErrorSD,
+         RanEffSD = m$RanEffSD, OOBresiduals = m$OOBresiduals,
+         predictions = m$Forest$predictions, ranef = unlist(m$RandomEffects),
+         naive = m$sd_Mendez_Lohr_naive_unad, ErrorSD_unadj = m$ErrorSD_unadj,
+         RanEffSD_unadj = m$RanEffSD_unadj)
+  })
+}
