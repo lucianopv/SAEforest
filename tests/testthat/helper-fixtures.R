@@ -105,3 +105,23 @@ tiny_saef_data_unsorted <- function(seed = 2026) {
   rownames(d$pop) <- NULL
   d
 }
+
+# The dense n x n route of adjust_ErrorSD_weights_(), kept verbatim as the
+# reference the matrix-free route is held to (same RNG draws, same K).
+dense_K_reference <- function(Y, X, rf, B = 100, num.threads = 1) {
+  W <- oob_weight_matrix_(rf, X, num.threads = num.threads)
+  ok <- attr(W, "n_oob") > 0 & is.finite(rf$predictions)
+  f_oob <- rf$predictions
+  e_ij <- Y - f_oob
+  e_ij <- e_ij[is.finite(e_ij)]
+  e_ij <- e_ij - mean(e_ij)
+  W_ok <- W[ok, , drop = FALSE]
+  f_ok <- f_oob[ok]
+  f_full <- ifelse(is.finite(f_oob), f_oob, 0)
+  n <- length(f_oob)
+  g <- vapply(seq_len(B), function(b) {
+    y_star <- f_full + sample(e_ij, n, replace = TRUE)
+    mean((as.vector(W_ok %*% y_star) - f_ok)^2)
+  }, numeric(1))
+  list(K = mean(g), m = as.integer(B))
+}

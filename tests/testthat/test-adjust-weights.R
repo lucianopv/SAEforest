@@ -103,3 +103,24 @@ test_that("var.adjust = FALSE is untouched by the new argument", {
   expect_equal(unname(predict(a$Forest, d$X)$predictions),
                unname(predict(b$Forest, d$X)$predictions))
 })
+
+test_that("matrix-free OOB predictions equal the weight matrix times the outcomes", {
+  d <- make_toy(); set.seed(1)
+  rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 30, keep.inbag = TRUE, num.threads = 1)
+  Ys <- matrix(stats::rnorm(nrow(d$X) * 4), ncol = 4)
+  W <- oob_weight_matrix_(rf, d$X); ok <- attr(W, "n_oob") > 0
+  expect_equal(oob_predict_boot_(rf, d$X, Ys)[ok, ], (W %*% Ys)[ok, ], tolerance = 1e-12)
+})
+test_that("K is the dense route's K, draw for draw", {
+  d <- make_toy(); set.seed(1)
+  rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 30, keep.inbag = TRUE, num.threads = 1)
+  set.seed(9); k_new <- adjust_ErrorSD_weights_(d$Y, d$X, rf, B = 7)$K
+  set.seed(9); k_ref <- dense_K_reference(d$Y, d$X, rf, B = 7)   # today's body, kept in helper-fixtures.R
+  expect_equal(k_new, k_ref$K, tolerance = 1e-12)
+})
+test_that("memory stays bounded at n = 12,000", {
+  set.seed(2); n <- 12000; X <- data.frame(a = stats::rnorm(n), b = stats::rnorm(n)); y <- X$a + stats::rnorm(n)
+  rf <- ranger::ranger(x = X, y = y, num.trees = 10, keep.inbag = TRUE)
+  invisible(gc(reset = TRUE)); adjust_ErrorSD_weights_(y, X, rf, B = 5); g <- gc()
+  expect_lt(g[2, 6], 500)   # Vcells "max used" (Mb); the dense W alone is 1,099 Mb
+})

@@ -33,9 +33,9 @@
 # observations that were never out-of-bag are all zero, matching ranger, which
 # returns NA for their OOB prediction; callers must drop those rows.
 #
-# Memory note: dense, hence O(n^2). Fine for the simulation sizes this was
-# written for (n ~ 1e3); a sparse representation would be needed before this
-# could run at GridSAE's n ~ 1.3e4.
+# Memory note: dense, hence O(n^2) (about 1.15 GB at n = 12,000). Kept as the
+# reference the tests hold oob_predict_boot_() to; adjust_ErrorSD_weights_() no
+# longer builds it.
 oob_weight_matrix_ <- function(rf, X, num.threads = 1) {
   if (is.null(rf$inbag.counts)) {
     stop("oob_weight_matrix_: the forest was grown without keep.inbag = TRUE, ",
@@ -74,6 +74,56 @@ oob_weight_matrix_ <- function(rf, X, num.threads = 1) {
   W
 }
 
+# W %*% Ystar without forming W.
+#
+# Same quantity as oob_weight_matrix_(rf, X) %*% Ystar on rows with an
+# out-of-bag prediction (other rows 0), computed tree by tree: within tree k the
+# in-bag-weighted sum of Ystar by terminal node, divided by the node's in-bag
+# count, is the tree's prediction for every observation falling in that node, and
+# only the observations out-of-bag in k receive it. Averaging over the K_i trees
+# in which i is out-of-bag gives row i of W %*% Ystar. Memory is O(n B).
+#
+# Ystar is an n x B matrix. Returns an n x B matrix with attribute "n_oob".
+# `nodes` lets a caller that has already run predict(type = "terminalNodes")
+# pass its result (predict.ranger can touch R's RNG, so the caller may need to
+# fix where in its stream that happens).
+oob_predict_boot_ <- function(rf, X, Ystar, num.threads = 1, nodes = NULL) {
+  if (is.null(rf$inbag.counts)) {
+    stop("oob_predict_boot_: the forest was grown without keep.inbag = TRUE, ",
+         "so the bootstrap multiplicities needed for the weights are unavailable.")
+  }
+  Ystar <- as.matrix(Ystar)
+  if (is.null(nodes)) {
+    nodes <- stats::predict(rf, X, type = "terminalNodes",
+                            num.threads = num.threads)$predictions
+  }
+  inbag <- do.call(cbind, rf$inbag.counts)
+  n <- nrow(nodes)
+  P <- matrix(0, n, ncol(Ystar))
+  n_oob <- integer(n)
+
+  for (k in seq_len(ncol(nodes))) {
+    b <- inbag[, k]
+    leaf <- nodes[, k]
+    oob <- which(b == 0)
+    if (!length(oob)) next
+    n_oob[oob] <- n_oob[oob] + 1L
+    S <- rowsum(b * Ystar, leaf, reorder = FALSE)   # in-bag weighted sums per leaf
+    tot <- rowsum(b, leaf, reorder = FALSE)[, 1]    # in-bag counts per leaf
+    idx <- match(leaf[oob], as.numeric(rownames(S)))
+    t_oob <- tot[idx]
+    keep <- is.finite(t_oob) & t_oob != 0           # as the dense code skips them
+    if (!any(keep)) next
+    rows <- oob[keep]
+    P[rows, ] <- P[rows, , drop = FALSE] +
+      S[idx[keep], , drop = FALSE] / t_oob[keep]
+  }
+
+  P <- P / pmax(n_oob, 1)
+  attr(P, "n_oob") <- n_oob
+  P
+}
+
 # K by Mendez & Lohr Procedure 2 with the weights held fixed.
 #
 # Same contract as adjust_ErrorSD_(): returns list(K, m). Rows without an OOB
@@ -87,8 +137,18 @@ adjust_ErrorSD_weights_ <- function(Y, X, rf, B = 100, num.threads = 1) {
   if (!(is.numeric(B) && length(B) == 1 && !is.na(B) && B >= 1)) {
     stop("adjust_ErrorSD_weights_: B must be a single numeric value >= 1.")
   }
-  W <- oob_weight_matrix_(rf, X, num.threads = num.threads)
-  ok <- attr(W, "n_oob") > 0 & is.finite(rf$predictions)
+  if (is.null(rf$inbag.counts)) {
+    stop("adjust_ErrorSD_weights_: the forest was grown without keep.inbag = TRUE, ",
+         "so the bootstrap multiplicities needed for the weights are unavailable.")
+  }
+  # The terminal nodes come first, as the dense route's weight matrix did, so the
+  # draws below start from the same point of the RNG stream (predict.ranger
+  # consumes it).
+  nodes <- stats::predict(rf, X, type = "terminalNodes",
+                          num.threads = num.threads)$predictions
+  # n_oob (the K_i) from the in-bag counts alone: the number of trees with b == 0
+  n_oob <- rowSums(do.call(cbind, rf$inbag.counts) == 0)
+  ok <- n_oob > 0 & is.finite(rf$predictions)
   if (!any(ok)) {
     stop("adjust_ErrorSD_weights_: no out-of-bag predictions to work from ",
          "(every observation was in-bag in every tree).")
@@ -102,15 +162,17 @@ adjust_ErrorSD_weights_ <- function(Y, X, rf, B = 100, num.threads = 1) {
     stop("adjust_ErrorSD_weights_: no finite OOB residuals to resample from.")
   }
 
-  W_ok <- W[ok, , drop = FALSE]
   f_ok <- f_oob[ok]
   f_full <- ifelse(is.finite(f_oob), f_oob, 0)  # anchor for the rows W reads from
   n <- length(f_oob)
 
-  g <- vapply(seq_len(B), function(b) {
-    y_star <- f_full + sample(e_ij, n, replace = TRUE)   # step 2
-    mean((as.vector(W_ok %*% y_star) - f_ok)^2)          # steps 3 and 4
-  }, numeric(1))
+  # Step 2, B pseudo-outcome vectors, drawn in the order the dense route drew them
+  Ystar <- matrix(0, n, B)
+  for (b in seq_len(B)) Ystar[, b] <- f_full + sample(e_ij, n, replace = TRUE)
+
+  # Steps 3 and 4, without forming W (O(n B) memory)
+  P <- oob_predict_boot_(rf, X, Ystar, num.threads = num.threads, nodes = nodes)
+  g <- colMeans((P[ok, , drop = FALSE] - f_ok)^2)
 
   list(K = mean(g), m = as.integer(B))
 }
