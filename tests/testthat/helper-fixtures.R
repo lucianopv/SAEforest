@@ -107,7 +107,9 @@ tiny_saef_data_unsorted <- function(seed = 2026) {
 }
 
 # The dense n x n route of adjust_ErrorSD_weights_(), kept verbatim as the
-# reference the matrix-free route is held to (same RNG draws, same K).
+# reference the matrix-free route is held to (same RNG draws, same K). It keeps
+# the old 0 anchor for never-out-of-bag rows, so K matches only where every row
+# is out-of-bag in some tree (as at make_toy()'s 30 trees); the draws always do.
 dense_K_reference <- function(Y, X, rf, B = 100, num.threads = 1) {
   W <- oob_weight_matrix_(rf, X, num.threads = num.threads)
   ok <- attr(W, "n_oob") > 0 & is.finite(rf$predictions)

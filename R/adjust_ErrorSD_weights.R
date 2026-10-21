@@ -124,6 +124,27 @@ oob_predict_boot_ <- function(rf, X, Ystar, num.threads = 1, nodes = NULL) {
   P
 }
 
+# The forest's in-sample prediction for `rows`, from its leaves and no RNG.
+#
+# In each tree the prediction for an observation is its terminal node's in-bag
+# mean of Y, each member counted with its bootstrap multiplicity (ranger's own
+# leaf value); averaging over all trees gives predict(rf, X)$predictions without
+# calling predict.ranger, which can touch R's RNG. Y must be the outcome the
+# forest was grown on and `nodes` its terminal nodes for X.
+inbag_predict_ <- function(rf, nodes, Y, rows) {
+  inbag <- do.call(cbind, rf$inbag.counts)
+  acc <- numeric(length(rows))
+  for (k in seq_len(ncol(nodes))) {
+    b <- inbag[, k]
+    leaf <- nodes[, k]
+    S <- rowsum(b * Y, leaf, reorder = FALSE)[, 1]   # in-bag weighted sums per leaf
+    tot <- rowsum(b, leaf, reorder = FALSE)[, 1]     # in-bag counts per leaf
+    idx <- match(leaf[rows], as.numeric(names(S)))
+    acc <- acc + S[idx] / tot[idx]
+  }
+  unname(acc / ncol(nodes))
+}
+
 # K by Mendez & Lohr Procedure 2 with the weights held fixed.
 #
 # Same contract as adjust_ErrorSD_(): returns list(K, m). Rows without an OOB
@@ -163,7 +184,14 @@ adjust_ErrorSD_weights_ <- function(Y, X, rf, B = 100, num.threads = 1) {
   }
 
   f_ok <- f_oob[ok]
-  f_full <- ifelse(is.finite(f_oob), f_oob, 0)  # anchor for the rows W reads from
+  # The anchor of Ystar, which W reads for every in-bag row. A row in-bag in every
+  # tree has no OOB prediction; it takes the forest's in-sample one, so the anchor
+  # moves with Y as the OOB predictions do (anchored at 0 instead, each OOB
+  # neighbour's gap picked up about -w * f_j and K depended on where Y sits).
+  # Computed without RNG, so the draws below are unchanged.
+  f_full <- f_oob
+  miss <- which(!is.finite(f_oob))
+  if (length(miss)) f_full[miss] <- inbag_predict_(rf, nodes, Y, miss)
   n <- length(f_oob)
 
   # Step 2, B pseudo-outcome vectors, drawn in the order the dense route drew them

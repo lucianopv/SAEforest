@@ -116,3 +116,36 @@ test_that("memory stays bounded at n = 12,000", {
   invisible(gc(reset = TRUE)); adjust_ErrorSD_weights_(y, X, rf, B = 5); g <- gc()
   expect_lt(g[2, 6], 500)   # Vcells "max used" (Mb); the dense W alone is 1,099 Mb
 })
+test_that("K does not depend on the location of Y when some rows are never out-of-bag", {
+  # At 6 trees a row is in-bag in every tree with probability 0.632^6 (about 6%).
+  # W reads such rows through Ystar, so their anchor must move with Y as the OOB
+  # predictions do; anchored at 0, K(Y + 10) was 5.94 against K(Y) = 2.04.
+  d <- make_toy()
+  k_at <- function(shift) {
+    rf <- ranger::ranger(x = d$X, y = d$Y + shift, num.trees = 6, keep.inbag = TRUE,
+                         seed = 7, num.threads = 1)
+    set.seed(9)
+    list(K = adjust_ErrorSD_weights_(d$Y + shift, d$X, rf, B = 50)$K,
+         never_oob = sum(rowSums(do.call(cbind, rf$inbag.counts) == 0) == 0))
+  }
+  k0 <- k_at(0); k10 <- k_at(10)
+  expect_gt(k0$never_oob, 0)                     # the case under test is present
+  expect_equal(k10$K, k0$K, tolerance = 1e-10)
+})
+test_that("the never-out-of-bag anchor is the forest's own in-sample prediction, drawn without RNG", {
+  d <- make_toy()
+  rf <- ranger::ranger(x = d$X, y = d$Y, num.trees = 6, keep.inbag = TRUE,
+                       seed = 7, num.threads = 1)
+  nodes <- stats::predict(rf, d$X, type = "terminalNodes", num.threads = 1)$predictions
+  never <- which(rowSums(do.call(cbind, rf$inbag.counts) == 0) == 0)
+  expect_gt(length(never), 0)
+  set.seed(1); before <- .Random.seed
+  got <- inbag_predict_(rf, nodes, d$Y, never)
+  expect_identical(.Random.seed, before)         # no RNG consumed
+  expect_equal(got, stats::predict(rf, d$X[never, ], num.threads = 1)$predictions,
+               tolerance = 1e-10)
+  # the draws themselves are unchanged: the stream ends where the old route's did
+  set.seed(9); adjust_ErrorSD_weights_(d$Y, d$X, rf, B = 5); s_new <- .Random.seed
+  set.seed(9); dense_K_reference(d$Y, d$X, rf, B = 5);      s_old <- .Random.seed
+  expect_identical(s_new, s_old)
+})
