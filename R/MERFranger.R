@@ -288,9 +288,12 @@ MERFranger <- function(Y, X, random, data,
       AdjustedTarget <- Target - (AllEffects - forest_preds)
     } else {
       ## ---- variance-adjusted path (Krennmair et al., 2026) ----
-      # na.rm throughout: forest_preds are OOB predictions, and ranger returns NA
-      # for an observation in-bag in every tree. Without na.rm one such value makes
-      # naive_unadj NA, and the comparison below then throws rather than fitting.
+      # forest_preds are OOB predictions, and ranger returns NA for an observation
+      # in-bag in every tree, so r_ij and r_ij_new are NA there. The summaries take
+      # na.rm (one NA would make naive_unadj NA and the comparison below throw).
+      # lmer drops those rows, so its fitted values are shorter than the data:
+      # AllEffects is then predicted on the data rows, and the smearing pool is
+      # built on the rows that have a residual (both below).
       r_ij <- Target - forest_preds
       r_ij <- r_ij - mean(r_ij, na.rm = TRUE)
       naive_unadj <- sd(Target - forest_preds, na.rm = TRUE)
@@ -352,7 +355,16 @@ MERFranger <- function(Y, X, random, data,
       ContinueCondition <- (isTRUE(abs(abs(newLogLik - oldLogLik[iterations]) / oldLogLik[iterations]) > ErrorTolerance) &
                               iterations < MaxIterations)
       oldLogLik <- c(oldLogLik, newLogLik)
-      AllEffects <- predict(lmefit) - lme4::fixef(lmefit)
+      AllEffects <- if (anyNA(r_ij_new)) {
+        # predict(lmefit) covers only the rows lmer kept, and Target - AllEffects
+        # would recycle it (rows after the first NA taking another row's effect).
+        # Predicting on the data gives every row its own area's effect; an area
+        # with no row left in the fit gets 0.
+        predict(lmefit, newdata = data, re.form = NULL, allow.new.levels = TRUE) -
+          lme4::fixef(lmefit)
+      } else {
+        predict(lmefit) - lme4::fixef(lmefit)
+      }
       AdjustedTarget <- Target - AllEffects
       sigma_e[[iterations]] <- stats::sigma(lmefit)
       sigma_u[[iterations]] <- as.data.frame(lme4::VarCorr(lmefit))$sdcor[1]
@@ -380,6 +392,8 @@ MERFranger <- function(Y, X, random, data,
     Target - predict(lmefit)
   } else {
     res_ij <- r_ij_new - AllEffects
+    # a row without an OOB prediction has no residual to smear with
+    if (anyNA(r_ij_new)) res_ij <- res_ij[!is.na(r_ij_new)]
     res_ij - mean(res_ij, na.rm = TRUE)
   }
 

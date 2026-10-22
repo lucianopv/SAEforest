@@ -89,3 +89,37 @@ test_that("non-degenerate var.adjust fits are unchanged by the degenerate-case g
   ref <- readRDS(testthat::test_path("fixtures", "varadjust_fits_ref.rds"))
   expect_identical(varadjust_guard_fits(), ref)
 })
+
+test_that("NA out-of-bag predictions keep every row on its own area's random effect", {
+  # At 6 trees about 6% of rows are in-bag in every tree, so their OOB
+  # prediction, r_ij and r_ij_new are NA. lmer drops those rows, so
+  # predict(lmefit) was shorter than the data and Target - AllEffects recycled
+  # (rows after the first NA took another row's effect), and so did the pool.
+  d <- make_toy()
+  seen <- new.env(); seen$Y <- list(); seen$n_na <- integer(0)
+  orig <- adjust_ErrorSD_weights_
+  testthat::local_mocked_bindings(adjust_ErrorSD_weights_ = function(Y, X, rf, ...) {
+    seen$Y[[length(seen$Y) + 1L]] <- Y          # AdjustedTarget of this iteration
+    seen$n_na <- c(seen$n_na, sum(!is.finite(rf$predictions)))
+    orig(Y, X, rf, ...)
+  })
+  out <- collect_warnings(
+    MERFranger(Y = d$Y, X = d$X, random = "(1|area)", data = d$data,
+               var.adjust = TRUE, adjust_method = "weights", B_adj = 10,
+               num.trees = 6, MaxIterations = 4, num.threads = 1, seed = 3))
+  m <- out$value
+  expect_true(all(seen$n_na > 0))                # the case is present every iteration
+  expect_length(out$warnings, 0)                 # no "longer object length" recycling
+  # Each iteration after the first is given Target - AllEffects: one value per
+  # row, the same within an area (that area's random effect).
+  for (Y in seen$Y[-1]) {
+    expect_length(Y, length(d$Y))
+    spread <- tapply(d$Y - Y, d$data$area, function(e) diff(range(e)))
+    expect_lt(max(spread), 1e-10)
+  }
+  # The final pool: each fitted row's r_ij_new less its own area's random effect.
+  fit_rows <- as.integer(rownames(stats::model.frame(m$EffectModel)))
+  re <- m$RandomEffects$area[as.character(d$data$area[fit_rows]), 1]
+  pool <- lme4::getME(m$EffectModel, "y") - re
+  expect_equal(unname(m$OOBresiduals), unname(pool - mean(pool)), tolerance = 1e-10)
+})
