@@ -1,6 +1,6 @@
 Package: SAEforest
 Title: Mixed Effect Random Forests for Small Area Estimation
-Version: 1.0.1.9002
+Version: 1.0.1.9003
 Authors@R: c(person("Patrick", "Krennmair", email = "patrick.krennmair@fu-berlin.de", role = c("aut", "cre")),
            person("Nicolas", "Frink", email = "nicolas.frink@fu-berlin.de", role = "aut"))
 Description: Mixed Effects Random Forests (MERFs) are a data-driven,

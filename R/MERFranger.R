@@ -435,6 +435,14 @@ MERFranger <- function(Y, X, random, data,
 }
 
 # Generic predict function for MERFranger ------------------------------------------------
+#' Predict from a MERFranger fit
+#'
+#' @param object A \code{MERFranger} object.
+#' @param ... Passed to the forest's and the effect model's predict methods.
+#' @details On \code{var.adjust} fits the area effects leave out the effect model's fixed
+#'   intercept (as the point estimates do), so \code{predict()} differs from the forest plus
+#'   \code{predict(object$EffectModel, ...)}.
+#' @return Numeric vector of predictions.
 #' @export
 predict.MERFranger <- function(object, ...) {
   # the area effect alone: a var.adjust effect model's intercept is left out
