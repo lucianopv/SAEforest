@@ -437,8 +437,9 @@ MERFranger <- function(Y, X, random, data,
 # Generic predict function for MERFranger ------------------------------------------------
 #' @export
 predict.MERFranger <- function(object, ...) {
+  # the area effect alone: a var.adjust effect model's intercept is left out
   retval <- predict(object$Forest, ...)$predictions +
-    predict(object$EffectModel, allow.new.levels = TRUE, ...)
+    ranef_part_(object$EffectModel, allow.new.levels = TRUE, ...)
 
   return(retval)
 }

@@ -216,7 +216,7 @@ ran_comp <- function(mod, smp_data, Y, dName, ADJsd) {
 ran_comp_wild <- function(mod, smp_data, Y, dName, ADJsd) {
   warn_zero_raneff(mod$RanEffSD)
 
-  forest_res <- Y - mod$Forest$predictions - predict(mod$EffectModel, smp_data)
+  forest_res <- Y - mod$Forest$predictions - ranef_part_(mod$EffectModel, smp_data)
   forest_res <- forest_res - mean(forest_res)
 
   # Random Effects. scale_to() is algebraically identical to the original
@@ -226,7 +226,7 @@ ran_comp_wild <- function(mod, smp_data, Y, dName, ADJsd) {
   # length-1 vector is NA; the NA used to propagate into wild_errors(), where
   # which.min(abs(NA - .)) returns integer(0) and aborts the vapply() with an
   # error naming a function several steps from the actual cause.
-  ran_effs <- unique(predict(mod$EffectModel, smp_data))
+  ran_effs <- unique(ranef_part_(mod$EffectModel, smp_data))
   ran_effs <- scale_to(ran_effs, mod$RanEffSD)
 
   return(list(
@@ -254,7 +254,7 @@ block_sample <- function(domains, in_samp, smp_data, dName, pop_data, forest_res
 
 # Samples wild errors in the MSE procedures -----------------------------------------------
 wild_errors <- function(x, mod, smp_data, forest_res) {
-  fitted_s <- predict(mod$Forest, smp_data)$predictions + predict(mod$EffectModel, smp_data)
+  fitted_s <- predict(mod$Forest, smp_data)$predictions + ranef_part_(mod$EffectModel, smp_data)
   indexer <- vapply(x, function(x) {
     which.min(abs(x - fitted_s))
   },
@@ -580,17 +580,37 @@ predict_forest_dedup <- function(forest, data, dedup_by = NULL, ...) {
   preds[match(key, key[first])]
 }
 
+# The area-effect part of an effect-model prediction. On the var.adjust path
+# the effect model is lmer(r_ij_new ~ (1 | area)), whose fixed intercept is not
+# part of the area effect: MERFranger trains the forest on Target - (predict -
+# fixef), and the authors' code predicts area effects the same way
+# (predict(EffectModel, ...) - fixef(EffectModel)). Keeping it shifts every unit
+# prediction by a replicate-random constant. The upstream model (Target ~ -1 +
+# (1 | area)) has no fixed effects: its predict() is returned untouched, so
+# var.adjust = FALSE gains no arithmetic. Anything that is not an lme4 fit (the
+# tests' lm() stand-ins for a degenerate effect model) is returned untouched
+# too. `...` goes to predict() as given (newdata, allow.new.levels, ...); an
+# unseen level gets 0.
+ranef_part_ <- function(model, ...) {
+  pr <- predict(model, ...)
+  if (!inherits(model, "merMod")) return(pr)
+  b <- lme4::fixef(model)
+  if (!("(Intercept)" %in% names(b))) return(pr)
+  pr - b[["(Intercept)"]]
+}
+
 # Random-effect predictions deduplicated by the grouping column. The effect
 # model's RHS depends only on dName (a random intercept, with or without a
 # fixed intercept), so predicting a one-row-per-level newdata and expanding by
 # match gives values byte-identical to predicting every row; names are
 # dropped (every consumer discards them). Routed through predict.merMod so
 # lme4's allow.new.levels semantics (unseen level -> fixed part only) are
-# preserved exactly rather than re-implemented.
+# preserved exactly rather than re-implemented; ranef_part_() then leaves the
+# fixed intercept out, so an unseen level gets 0.
 predict_ranef_dedup <- function(effect_model, data, dName) {
   lv <- unique(data[[dName]])
   nd <- stats::setNames(data.frame(lv), dName)
-  pr <- predict(effect_model, newdata = nd, allow.new.levels = TRUE)
+  pr <- ranef_part_(effect_model, newdata = nd, allow.new.levels = TRUE)
   unname(pr[match(data[[dName]], lv)])
 }
 

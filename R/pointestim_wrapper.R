@@ -29,7 +29,7 @@ point_mean <- function(Y,
   )
 
   unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
-    predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+    ranef_part_(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
 
   if(is.null(aggregate_to)){
     unit_preds_ID <- cbind(pop_data[dName], unit_preds)
@@ -118,10 +118,11 @@ point_nonLin <- function(Y,
   )
 
   # dedup_by = NULL keeps the original calls byte-for-byte; non-NULL computes
-  # each distinct level's prediction once and expands (exact, no RNG).
+  # each distinct level's prediction once and expands (exact, no RNG). The
+  # effect-model part is the area effect alone (ranef_part_: no intercept).
   if (is.null(dedup_by)) {
     unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
-      predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+      ranef_part_(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
   } else {
     unit_preds <- predict_forest_dedup(unit_model$Forest, pop_data, dedup_by) +
       predict_ranef_dedup(unit_model$EffectModel, pop_data, dName)
@@ -229,7 +230,7 @@ point_meanAGG <- function(Y,
   )
 
   unit_preds <- predict(unit_model$Forest, smp_data)$predictions
-  u_ij <- predict(unit_model$EffectModel, smp_data, allow.new.levels = TRUE)
+  u_ij <- ranef_part_(unit_model$EffectModel, smp_data, allow.new.levels = TRUE)
 
   smp_data$forest_preds <- unit_preds + u_ij
   smp_data$u_ij <- u_ij
@@ -435,7 +436,7 @@ point_MC_nonLin <- function(Y,
 
   if (is.null(dedup_by)) {
     unit_preds <- predict(unit_model$Forest, pop_data)$predictions +
-      predict(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
+      ranef_part_(unit_model$EffectModel, pop_data, allow.new.levels = TRUE)
   } else {
     unit_preds <- predict_forest_dedup(unit_model$Forest, pop_data, dedup_by) +
       predict_ranef_dedup(unit_model$EffectModel, pop_data, dName)

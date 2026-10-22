@@ -167,3 +167,80 @@ varadjust_guard_fits <- function() {
          RanEffSD_unadj = m$RanEffSD_unadj)
   })
 }
+
+# Synthetic toy with UNBALANCED areas whose size grows with their effect (3, 6,
+# ..., 3D units). On the var.adjust path the effect model lmer(r_ij_new ~ (1 |
+# area)) has a fixed intercept; with balanced areas it is zero up to rounding
+# (r_ij_new is centred), so a prediction that wrongly keeps it cannot be told
+# apart. Here it is clearly non-zero. `pop` holds every sampled area plus one
+# the sample never saw ("new"), sorted by area, with a `cell` key (two
+# identical rows per cell) for dedup_by. No real data involved.
+make_toy_unbalanced <- function(D = 12, seed = 1) {
+  set.seed(seed)
+  lv <- sprintf("a%02d", seq_len(D))
+  n_i <- 3L * seq_len(D)
+  v <- scale(seq_len(D))[, 1] * 0.8
+  area <- rep(seq_len(D), times = n_i)
+  n <- length(area)
+  x1 <- stats::rnorm(n); x2 <- stats::rnorm(n)
+  y <- 2 * x1 + x2^2 + v[area] + stats::rnorm(n, 0, 1)
+  smp <- data.frame(area = lv[area], x1 = x1, x2 = x2, y = y)
+  cells <- data.frame(area = rep(c(lv, "new"), each = 20L))
+  cells$x1 <- stats::rnorm(nrow(cells)); cells$x2 <- stats::rnorm(nrow(cells))
+  cells$cell <- seq_len(nrow(cells))
+  pop <- cells[rep(seq_len(nrow(cells)), each = 2L), , drop = FALSE]
+  rownames(pop) <- NULL
+  list(Y = y, X = smp[, c("x1", "x2")], smp = smp, pop = pop, dName = "area")
+}
+
+# The var.adjust = FALSE outputs of every site that predicts area effects from
+# the effect model: predict.MERFranger, predict_ranef_dedup, the four point
+# wrappers, the wild MSE helpers, and the MSE bootstrap end to end. Held against
+# fixtures/upstream_effects_ref.rds (frozen at e261df1 by
+# make_upstream_effects_reference.R): leaving the effect model's intercept out
+# of var.adjust predictions (Task 13a) must not move any of them.
+upstream_effect_outputs <- function() {
+  d <- make_toy_unbalanced()
+  m <- MERFranger(Y = d$Y, X = d$X, random = "(1|area)", data = d$smp,
+                  num.trees = 50, num.threads = 1, seed = 3)
+  pt <- list(Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp,
+             pop_data = d$pop, initialRandomEffects = 0,
+             ErrorTolerance = 1e-4, MaxIterations = 25, aggregate_to = NULL,
+             num.trees = 50, num.threads = 1, seed = 3)
+  nl <- c(pt, list(threshold = NULL, custom_indicator = NULL))
+  rcw <- ran_comp_wild(mod = m, smp_data = d$smp, Y = d$Y, dName = d$dName,
+                       ADJsd = m$ErrorSD)
+  set.seed(6)
+  wild <- wild_errors(x = predict(m, d$pop), mod = m, smp_data = d$smp,
+                      forest_res = rcw$forest_res)
+  set.seed(5)
+  mc <- do.call(point_MC_nonLin, c(nl, list(B_point = 2)))[[1]]
+
+  mse <- function(MSE, ...) {
+    r <- suppressMessages(SAEforest_model(
+      Y = d$Y, X = d$X, dName = d$dName, smp_data = d$smp, pop_data = d$pop,
+      meanOnly = FALSE, MSE = MSE, B = 2, threshold = median(d$Y),
+      num.trees = 50, mtry = 2, seed = 5, ...))
+    list(Indicators = r$Indicators, MSE_Estimates = r$MSE_Estimates)
+  }
+  a <- tiny_agg_data()
+  agg <- suppressMessages(SAEforest_model(
+    Y = a$Y, X = a$X, dName = a$dName, smp_data = a$smp, pop_data = a$popAgg,
+    aggData = TRUE, popnsize = a$popN, MSE = "none", num.trees = 50, mtry = 2,
+    importance = "impurity", seed = 5))
+
+  list(
+    predict_MERFranger = predict(m, d$pop),
+    ranef_dedup = predict_ranef_dedup(m$EffectModel, d$pop, d$dName),
+    point_mean = do.call(point_mean, pt)[[1]],
+    point_nonLin = do.call(point_nonLin, nl)[[1]],
+    point_nonLin_dedup = do.call(point_nonLin, c(nl, list(dedup_by = "cell")))[[1]],
+    point_MC_nonLin = mc,
+    point_meanAGG = agg$Indicators,
+    ran_comp_wild = rcw,
+    wild_errors = wild,
+    mse_wild = mse("wild"),
+    mse_nonparametric = mse("nonparametric"),
+    mse_nonparametric_MC = mse("nonparametric", smearing = FALSE, B_MC = 2)
+  )
+}

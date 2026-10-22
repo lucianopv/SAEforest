@@ -15,18 +15,26 @@ test_that("predict_forest_dedup equals row-wise predict on duplicated data", {
   expect_identical(predict_forest_dedup(rf, pop2, NULL), full)
 })
 
-test_that("predict_ranef_dedup equals predict.merMod incl. unseen levels", {
+test_that("predict_ranef_dedup equals the row-wise area effect incl. unseen levels", {
   skip_on_cran(); skip_if_not_installed("emdi")
   d <- tiny_saef_data()
   set.seed(12)
   d$smp$r <- rnorm(nrow(d$smp))
-  fit <- lme4::lmer(r ~ (1 | district), data = d$smp, REML = TRUE)
   nd <- d$pop[rep(seq_len(nrow(d$pop)), each = 2), , drop = FALSE]
   nd$district <- as.character(nd$district)
   nd$district[1:2] <- "UNSEEN_LEVEL"   # exercises allow.new.levels = TRUE
-  full <- predict(fit, newdata = nd, allow.new.levels = TRUE)
+  # The var.adjust shape: the fixed intercept is left out (ranef_part_), so the
+  # unseen level gets 0.
+  fit <- lme4::lmer(r ~ (1 | district), data = d$smp, REML = TRUE)
+  full <- predict(fit, newdata = nd, allow.new.levels = TRUE) -
+    lme4::fixef(fit)[["(Intercept)"]]
   dd <- predict_ranef_dedup(fit, nd, "district")
   expect_identical(unname(dd), unname(full))
+  expect_identical(dd[1:2], c(0, 0))
+  # The upstream shape (no fixed effects): exactly predict.merMod.
+  fit0 <- lme4::lmer(r ~ -1 + (1 | district), data = d$smp, REML = FALSE)
+  full0 <- predict(fit0, newdata = nd, allow.new.levels = TRUE)
+  expect_identical(predict_ranef_dedup(fit0, nd, "district"), unname(full0))
 })
 
 # End-to-end: dedup_by must be BYTE-identical through the full pipeline, on
